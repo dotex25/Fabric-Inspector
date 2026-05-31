@@ -649,7 +649,7 @@ fun ActionControlsPanel(
                     Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
-                        "CAPTURE CURRENT FRAME (${activeBoxes.size} FLOWER RUNS)",
+                        "CAPTURE CURRENT FRAME (${activeBoxes.size} ANOMALIES)",
                         fontWeight = FontWeight.Black,
                         color = Color.White,
                         fontSize = 12.sp,

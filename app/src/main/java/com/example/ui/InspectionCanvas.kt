@@ -6,6 +6,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -57,10 +59,13 @@ fun InspectionCanvas(
     modifier: Modifier = Modifier
 ) {
     val bitmap by viewModel.currentBitmap.collectAsState()
-    val activeBoxes by viewModel.activeBoxes.collectAsState()
+    val activeBoxesState = viewModel.activeBoxes.collectAsState()
+    val activeBoxes by activeBoxesState
     val isCorrectionMode by viewModel.isCorrectionMode.collectAsState()
-    val selectedBoxIndex by viewModel.selectedBoxIndex.collectAsState()
-    val tempBox by viewModel.tempDrawingBox.collectAsState()
+    val selectedBoxIndexState = viewModel.selectedBoxIndex.collectAsState()
+    val selectedBoxIndex by selectedBoxIndexState
+    val tempBoxState = viewModel.tempDrawingBox.collectAsState()
+    val tempBox by tempBoxState
 
     // BRAND NEW ENTERPRISE STATES
     val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
@@ -247,9 +252,12 @@ fun InspectionCanvas(
                                 val touchXNormalized = ((offset.x / canvasWidthPx) * 1000).toInt()
                                 val touchYNormalized = ((offset.y / canvasHeightPx) * 1000).toInt()
 
+                                val currentActiveBoxes = activeBoxesState.value
+                                val currentSelectedBoxIndex = selectedBoxIndexState.value ?: -1
+
                                 // 1. Check if we tapped on handles/corners of the SELECTED box to RESIZE
-                                if (selectedBoxIndex != null && selectedBoxIndex!! >= 0 && selectedBoxIndex!! < activeBoxes.size) {
-                                    val selBox = activeBoxes[selectedBoxIndex!!]
+                                if (currentSelectedBoxIndex >= 0 && currentSelectedBoxIndex < currentActiveBoxes.size) {
+                                    val selBox = currentActiveBoxes[currentSelectedBoxIndex]
                                     val threshold = 35 // normalized units tolerance (~3.5% area screen)
 
                                     when {
@@ -270,15 +278,29 @@ fun InspectionCanvas(
                                             activeGestureType = "MOVE"
                                         }
                                         else -> {
-                                            // Clicked outside: start DRAW_NEW
-                                            activeGestureType = "DRAW"
+                                            // Clicked outside: check if clicked on any OTHER box to select, else DRAW
+                                            var clickedIndex = -1
+                                            for (i in currentActiveBoxes.indices.reversed()) {
+                                                val box = currentActiveBoxes[i]
+                                                if (touchXNormalized in box.xMin..box.xMax && touchYNormalized in box.yMin..box.yMax) {
+                                                    clickedIndex = i
+                                                    break
+                                                }
+                                            }
+
+                                            if (clickedIndex != -1) {
+                                                viewModel.selectBox(clickedIndex)
+                                                activeGestureType = "MOVE"
+                                            } else {
+                                                activeGestureType = "DRAW"
+                                            }
                                         }
                                     }
                                 } else {
                                     // 2. Check if we tapped INSIDE any other existing box to SELECT it
                                     var clickedIndex = -1
-                                    for (i in activeBoxes.indices.reversed()) {
-                                        val box = activeBoxes[i]
+                                    for (i in currentActiveBoxes.indices.reversed()) {
+                                        val box = currentActiveBoxes[i]
                                         if (touchXNormalized in box.xMin..box.xMax && touchYNormalized in box.yMin..box.yMax) {
                                             clickedIndex = i
                                             break
@@ -301,11 +323,14 @@ fun InspectionCanvas(
                                 val currentXNorm = ((currentOffset.x / canvasWidthPx) * 1000).toInt()
                                 val currentYNorm = ((currentOffset.y / canvasHeightPx) * 1000).toInt()
 
+                                val currentSelectedBoxIndex = selectedBoxIndexState.value ?: -1
+                                val currentActiveBoxes = activeBoxesState.value
+
                                 when (activeGestureType) {
                                     "MOVE" -> {
                                         val dxPct = dragAmount.x / canvasWidthPx
                                         val dyPct = dragAmount.y / canvasHeightPx
-                                        viewModel.moveSelectedBox(selectedBoxIndex ?: -1, dxPct, dyPct)
+                                        viewModel.moveSelectedBox(currentSelectedBoxIndex, dxPct, dyPct)
                                     }
                                     "DRAW" -> {
                                         val ymin = minOf(startYNorm, currentYNorm)
@@ -315,38 +340,35 @@ fun InspectionCanvas(
                                         viewModel.setTempDrawingBox(ymin, xmin, ymax, xmax)
                                     }
                                     "RESIZE_TL" -> {
-                                        val idx = selectedBoxIndex ?: -1
-                                        if (idx in activeBoxes.indices) {
-                                            val currentBox = activeBoxes[idx]
-                                            viewModel.resizeSelectedBox(idx, currentYNorm, currentXNorm, currentBox.yMax, currentBox.xMax)
+                                        if (currentSelectedBoxIndex in currentActiveBoxes.indices) {
+                                            val currentBox = currentActiveBoxes[currentSelectedBoxIndex]
+                                            viewModel.resizeSelectedBox(currentSelectedBoxIndex, currentYNorm, currentXNorm, currentBox.yMax, currentBox.xMax)
                                         }
                                     }
                                     "RESIZE_TR" -> {
-                                        val idx = selectedBoxIndex ?: -1
-                                        if (idx in activeBoxes.indices) {
-                                            val currentBox = activeBoxes[idx]
-                                            viewModel.resizeSelectedBox(idx, currentYNorm, currentBox.xMin, currentBox.yMax, currentXNorm)
+                                        if (currentSelectedBoxIndex in currentActiveBoxes.indices) {
+                                            val currentBox = currentActiveBoxes[currentSelectedBoxIndex]
+                                            viewModel.resizeSelectedBox(currentSelectedBoxIndex, currentYNorm, currentBox.xMin, currentBox.yMax, currentXNorm)
                                         }
                                     }
                                     "RESIZE_BL" -> {
-                                        val idx = selectedBoxIndex ?: -1
-                                        if (idx in activeBoxes.indices) {
-                                            val currentBox = activeBoxes[idx]
-                                            viewModel.resizeSelectedBox(idx, currentBox.yMin, currentXNorm, currentYNorm, currentBox.xMax)
+                                        if (currentSelectedBoxIndex in currentActiveBoxes.indices) {
+                                            val currentBox = currentActiveBoxes[currentSelectedBoxIndex]
+                                            viewModel.resizeSelectedBox(currentSelectedBoxIndex, currentBox.yMin, currentXNorm, currentYNorm, currentBox.xMax)
                                         }
                                     }
                                     "RESIZE_BR" -> {
-                                        val idx = selectedBoxIndex ?: -1
-                                        if (idx in activeBoxes.indices) {
-                                            val currentBox = activeBoxes[idx]
-                                            viewModel.resizeSelectedBox(idx, currentBox.yMin, currentBox.xMin, currentYNorm, currentXNorm)
+                                        if (currentSelectedBoxIndex in currentActiveBoxes.indices) {
+                                            val currentBox = currentActiveBoxes[currentSelectedBoxIndex]
+                                            viewModel.resizeSelectedBox(currentSelectedBoxIndex, currentBox.yMin, currentBox.xMin, currentYNorm, currentXNorm)
                                         }
                                     }
                                 }
                             },
                             onDragEnd = {
-                                if (activeGestureType == "DRAW" && tempBox != null) {
-                                    val finalBox = tempBox!!
+                                val currentTempBox = tempBoxState.value
+                                if (activeGestureType == "DRAW" && currentTempBox != null) {
+                                    val finalBox = currentTempBox
                                     val widthVal = abs(finalBox[3] - finalBox[1])
                                     val heightVal = abs(finalBox[2] - finalBox[0])
 
@@ -543,7 +565,7 @@ fun InspectionCanvas(
             },
             title = { Text("Select Defect Category", color = TextWhite) },
             text = {
-                Column {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                     Text("Identify the defect category for the freshly drawn bounding box:", color = TextMuted, modifier = Modifier.padding(bottom = 12.dp))
                     labelOptions.forEach { option ->
                         Button(
