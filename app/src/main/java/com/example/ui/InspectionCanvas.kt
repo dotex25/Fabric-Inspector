@@ -89,7 +89,11 @@ fun InspectionCanvas(
     // Dropdown/Dialog state for labeling a newly drawn box
     var showLabelPrompt by remember { mutableStateOf(false) }
     var newlyDrawnCoords by remember { mutableStateOf<List<Int>?>(null) }
-    val labelOptions = listOf("Hole", "Oil Spot", "Stain", "Torn Thread")
+    val labelOptions = listOf(
+        "Hole / Tear", "Slub", "Contaminated Thread", "Snag",
+        "Skipped Stitch", "Open Seam", "Seam Puckering", "Uneven Stitching", "Wavy Seam",
+        "Oil Spot", "Dye Stain", "Uncut Thread", "Iron Burn", "Tailor Mark"
+    )
 
     // Gesture type tracking
     var activeGestureType by remember { mutableStateOf("NONE") } // "MOVE", "RESIZE_TL", "RESIZE_TR", "RESIZE_BL", "RESIZE_BR", "DRAW", "NONE"
@@ -367,10 +371,10 @@ fun InspectionCanvas(
                 // Render bounding boxes if we are not hiding them in comparison raw view
                 if (!showOriginalOnlyInCompare) {
                     activeBoxes.forEachIndexed { index, box ->
-                        val color = when (box.label) {
-                            "Hole" -> DefectHole
-                            "Oil Spot" -> DefectOilSpot
-                            "Stain" -> DefectStain
+                        val color = when {
+                            box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> DefectHole
+                            box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> DefectOilSpot
+                            box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> DefectStain
                             else -> DefectTornThread
                         }
 
@@ -554,10 +558,10 @@ fun InspectionCanvas(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(option, color = TextWhite)
-                                val badgeColor = when (option) {
-                                    "Hole" -> DefectHole
-                                    "Oil Spot" -> DefectOilSpot
-                                    "Stain" -> DefectStain
+                                val badgeColor = when {
+                                    option.contains("Hole", ignoreCase = true) || option.contains("Tear", ignoreCase = true) -> DefectHole
+                                    option.contains("Oil", ignoreCase = true) || option.contains("Grease", ignoreCase = true) -> DefectOilSpot
+                                    option.contains("Stain", ignoreCase = true) || option.contains("Dye", ignoreCase = true) -> DefectStain
                                     else -> DefectTornThread
                                 }
                                 Box(modifier = Modifier.size(10.dp).background(badgeColor, CircleShape))

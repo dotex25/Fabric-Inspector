@@ -69,19 +69,41 @@ object GeminiScanner {
     // Build the dynamic instruction text showing operators past corrections as a few-shot log
     private fun buildSystemInstruction(pastCorrections: List<com.example.data.DefectBox>): String {
         val baseInstructions = """
-            You are an expert quality control vision AI assistant on a garment factory inspection line.
-            Your task is to analyze the provided fabric image and detect anomalies or defects.
+            You are a highly precise, automated Industrial Vision Inspection System deployed on the production floor of a tier-1 garment manufacturer.
             
-            Identify and locate all instances of fabric defects. For each defect, you must return:
-            1. 'box_2d': Coordinates indicating [ymin, xmin, ymax, xmax] normalized on a 0 to 1000 scale representing the bounding box.
-            2. 'label': The exact category of defect detected. You MUST use one of these categories:
-               - 'Hole' (punctures, tears, or broken knit structures)
-               - 'Oil Spot' (dark oily droplets, grease patterns or marks)
-               - 'Stain' (faded areas, paint, dirt spots or dye discolorations)
-               - 'Torn Thread' (loose single threads, fraying, pulled stitches or loose yarn loops)
-            3. 'confidence': A floating point score of confidence (0.0 to 1.0).
+            Your task is to analyze the provided fabric image of a garment panel or finished piece, isolate any manufacturing discrepancies, and extract their spatial coordinate boundaries. You must ignore intentional fabric designs, print patterns (like polka dots or stripes), and normal texture shadows.
             
-            Always provide a strict, well-formed bounding box. Do not highlight normal fabric patterns or minor weave texture variations.
+            Identify and locate all instances of garment and fabric defects. You must return a structured JSON array matching this Pydantic schema:
+            [{
+              "box_2d": [ymin, xmin, ymax, xmax], 
+              "label": "Use EXACT label name from Target Directory below",
+              "confidence": float (between 0.0 and 1.0)
+            }]
+            
+            If no defects are present, return an empty array: []. Do not output any regular markdown text, conversational explanations, or formatting blocks. Return raw JSON only.
+            
+            ### Target Classification Directory:
+            Scan the visual inputs specifically for the following categories:
+            
+            1. FABRIC_ANOMALIES:
+               - "Hole / Tear" (Physical puncture or ripped yarns)
+               - "Slub" (Defective thick bunching of yarn in weave)
+               - "Contaminated Thread" (Foreign colored fibers trapped in fabric)
+               - "Snag" (Pulled loops on the surface)
+               
+            2. SEWING_DEFECTS:
+               - "Skipped Stitch" (Missing thread loops along a seam line)
+               - "Open Seam" (Broken stitches exposing a structural gap between panels)
+               - "Seam Puckering" (Taut, bunched, or wrinkled stitch lines)
+               - "Uneven Stitching" (Wandering, crooked, or misaligned needle paths)
+               - "Wavy Seam" (Stretched out, rippled edges)
+               
+            3. FINISHING_DEFECTS:
+               - "Oil Spot" (Machine lubricant stains or dark grease drops)
+               - "Dye Stain" (Color bleeding, shading variation, or chemical smudges)
+               - "Uncut Thread" (Dangling loose thread tails at tails/hems)
+               - "Iron Burn" (Shiny glaze or scorched yellowing from pressing)
+               - "Tailor Mark" (Leftover chalk lines or pattern ink pen marks)
         """.trimIndent()
 
         if (pastCorrections.isEmpty()) {
@@ -100,7 +122,7 @@ object GeminiScanner {
             Below is a dynamic history of human-supervised corrections on this production line. Use these historical examples of bounding box alignments and corrected defect classifications to guide your current factory inspection:
             $correctionsLog
             
-            Reference this dataset to systematic match user expectations. If you see similar patterns as described above, apply the corresponding defect labels accurately.
+            Reference this dataset to systematically match user expectations. If you see similar patterns as described above, apply the corresponding defect labels accurately.
         """.trimIndent()
     }
 
@@ -114,12 +136,12 @@ object GeminiScanner {
             throw IllegalStateException("API key is unconfigured. Please configure your API key in the Secrets panel of AI Studio.")
         }
 
-        val prompt = "Locate and label all fabric defects in this fabric sample. Return the bounding box coordinates, label name, and your confidence score for each defect."
+        val prompt = "Locate and label all garment or fabric defects in this sample. Return the bounding box coordinates [ymin, xmin, ymax, xmax], category label name, and your confidence score for each defect as raw JSON."
 
         // Build Schema for JSON Response format:
         val schema = ResponseSchema(
             type = "ARRAY",
-            description = "List of all detected fabric defect bounding boxes and categories.",
+            description = "List of all detected garment/fabric defect bounding boxes and categories.",
             items = ResponseSchema(
                 type = "OBJECT",
                 properties = mapOf(
@@ -130,7 +152,7 @@ object GeminiScanner {
                     ),
                     "label" to ResponseSchema(
                         type = "STRING",
-                        description = "Exact defect name: 'Hole', 'Oil Spot', 'Stain', or 'Torn Thread'"
+                        description = "Exact defect category name from: 'Hole / Tear', 'Slub', 'Contaminated Thread', 'Snag', 'Skipped Stitch', 'Open Seam', 'Seam Puckering', 'Uneven Stitching', 'Wavy Seam', 'Oil Spot', 'Dye Stain', 'Uncut Thread', 'Iron Burn', 'Tailor Mark'"
                     ),
                     "confidence" to ResponseSchema(
                         type = "NUMBER",

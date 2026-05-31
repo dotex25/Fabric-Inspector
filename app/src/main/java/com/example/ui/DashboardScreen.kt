@@ -730,13 +730,37 @@ fun BentoMetricsGrid(
     
     // Counting specific defect categories for our native data visualization chart
     val defectCounts = remember(activeBoxes) {
-        val holes = activeBoxes.count { it.label == "Hole" }
-        val spots = activeBoxes.count { it.label == "Oil Spot" }
-        val stains = activeBoxes.count { it.label == "Stain" }
-        val torns = activeBoxes.count { it.label == "Torn Thread" }
-        val total = holes + spots + stains + torns
+        val fabricAnomalies = activeBoxes.count { 
+            it.label.contains("Hole", ignoreCase = true) || 
+            it.label.contains("Tear", ignoreCase = true) || 
+            it.label.contains("Slub", ignoreCase = true) || 
+            it.label.contains("Contaminated", ignoreCase = true) || 
+            it.label.contains("Snag", ignoreCase = true)
+        }
+        val finishingDefects = activeBoxes.count { 
+            it.label.contains("Oil", ignoreCase = true) || 
+            it.label.contains("Grease", ignoreCase = true) || 
+            it.label.contains("Burn", ignoreCase = true) || 
+            it.label.contains("Uncut", ignoreCase = true)
+        }
+        val dyeStainsAndMarks = activeBoxes.count { 
+            it.label.contains("Stain", ignoreCase = true) || 
+            it.label.contains("Mark", ignoreCase = true)
+        }
+        val sewingDefects = activeBoxes.count { 
+            it.label.contains("Stitch", ignoreCase = true) || 
+            it.label.contains("Seam", ignoreCase = true) || 
+            it.label.contains("Puckering", ignoreCase = true)
+        }
+        val total = activeBoxes.size
         
-        mapOf("Hole" to holes, "Oil Spot" to spots, "Stain" to stains, "Torn Thread" to torns, "Total" to total)
+        mapOf(
+            "Hole" to fabricAnomalies, 
+            "Oil Spot" to finishingDefects, 
+            "Stain" to dyeStainsAndMarks, 
+            "Torn Thread" to sewingDefects, 
+            "Total" to total
+        )
     }
 
     Column(
@@ -955,21 +979,21 @@ fun BentoMetricsGrid(
                     Column(horizontalAlignment = Alignment.Start) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(modifier = Modifier.size(8.dp).background(DefectHole, CircleShape))
-                            Text("Hole (${defectCounts["Hole"]})", fontSize = 10.sp, color = textWhite)
+                            Text("Fabric Anomaly (${defectCounts["Hole"]})", fontSize = 10.sp, color = textWhite)
                         }
                         Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(modifier = Modifier.size(8.dp).background(DefectStain, CircleShape))
-                            Text("Stain (${defectCounts["Stain"]})", fontSize = 10.sp, color = textWhite)
+                            Text("Dye/Chalk Stain (${defectCounts["Stain"]})", fontSize = 10.sp, color = textWhite)
                         }
                     }
                     Column(horizontalAlignment = Alignment.Start) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(modifier = Modifier.size(8.dp).background(DefectOilSpot, CircleShape))
-                            Text("Oil Spot (${defectCounts["Oil Spot"]})", fontSize = 10.sp, color = textWhite)
+                            Text("Finishing Defect (${defectCounts["Oil Spot"]})", fontSize = 10.sp, color = textWhite)
                         }
                         Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             Box(modifier = Modifier.size(8.dp).background(DefectTornThread, CircleShape))
-                            Text("Torn Thread (${defectCounts["Torn Thread"]})", fontSize = 10.sp, color = textWhite)
+                            Text("Sewing Defect (${defectCounts["Torn Thread"]})", fontSize = 10.sp, color = textWhite)
                         }
                     }
                 }
