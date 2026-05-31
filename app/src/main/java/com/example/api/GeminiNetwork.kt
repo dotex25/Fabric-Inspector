@@ -183,9 +183,9 @@ object GeminiScanner {
             )
         )
 
-        // Using "gemini-3.5-flash" as the default model
+        // Using "gemini-2.5-flash" as the default model
         val response = RetrofitClient.service.generateContent(
-            model = "gemini-3.5-flash",
+            model = "gemini-2.5-flash",
             apiKey = apiKey,
             request = request
         )
