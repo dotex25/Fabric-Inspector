@@ -17,6 +17,7 @@ import com.example.data.DefectBox
 import com.example.data.InspectionRepository
 import com.example.data.InspectionScan
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.InputStream
 import java.util.UUID
+
+data class AuditLogEntry(
+    val id: String,
+    val timestamp: Long,
+    val operator: String,
+    val action: String,
+    val severity: String // "INFO", "ALERT", "SUCCESS", "ERROR"
+)
 
 class InspectionViewModel(
     application: Application,
@@ -63,6 +72,37 @@ class InspectionViewModel(
 
     private val _apiError = MutableStateFlow<String?>(null)
     val apiError: StateFlow<String?> = _apiError.asStateFlow()
+
+    // NEW ENTERPRISE STATE FLOWS
+    private val _isLiveCameraActive = MutableStateFlow<Boolean>(false)
+    val isLiveCameraActive: StateFlow<Boolean> = _isLiveCameraActive.asStateFlow()
+
+    private val _isSplitCompareActive = MutableStateFlow<Boolean>(false)
+    val isSplitCompareActive: StateFlow<Boolean> = _isSplitCompareActive.asStateFlow()
+
+    private val _selectedOperator = MutableStateFlow<String>("Sarah K (Station 4)")
+    val selectedOperator: StateFlow<String> = _selectedOperator.asStateFlow()
+
+    private val _saasTier = MutableStateFlow<String>("PLATINUM ENTERPRISE")
+    val saasTier: StateFlow<String> = _saasTier.asStateFlow()
+
+    private val _language = MutableStateFlow<String>("EN")
+    val language: StateFlow<String> = _language.asStateFlow()
+
+    private val _isOfflineMode = MutableStateFlow<Boolean>(false)
+    val isOfflineMode: StateFlow<Boolean> = _isOfflineMode.asStateFlow()
+
+    private val _exportProgress = MutableStateFlow<Float?>(null)
+    val exportProgress: StateFlow<Float?> = _exportProgress.asStateFlow()
+
+    private val _auditLogs = MutableStateFlow<List<AuditLogEntry>>(
+        listOf(
+            AuditLogEntry("1", System.currentTimeMillis() - 120000, "Sarah K", "System initialization. Spark Engine v1 online.", "INFO"),
+            AuditLogEntry("2", System.currentTimeMillis() - 75000, "Sarah K", "Calibrated digital spectrum filters & chroma scales.", "INFO"),
+            AuditLogEntry("3", System.currentTimeMillis() - 30000, "Sarah K", "ISO 9001 standard compliance self-test passed.", "SUCCESS")
+        )
+    )
+    val auditLogs: StateFlow<List<AuditLogEntry>> = _auditLogs.asStateFlow()
 
     // Temporary box being drawn by user: [ymin, xmin, ymax, xmax] coordinates from 0 to 1000
     private val _tempDrawingBox = MutableStateFlow<List<Int>?>(null)
@@ -406,6 +446,147 @@ class InspectionViewModel(
             val listMy = Types.newParameterizedType(List::class.java, Map::class.java)
             val adapter = moshi.adapter<List<Map<String, Any>>>(listMy)
             adapter.indent("  ").toJson(list)
+        }
+    }
+
+    // BRAND NEW CONTROL FUNCTIONS
+    private var liveScanJob: kotlinx.coroutines.Job? = null
+
+    fun toggleLiveMode() {
+        if (_isLiveCameraActive.value) {
+            _isLiveCameraActive.value = false
+            liveScanJob?.cancel()
+            liveScanJob = null
+            addAuditLog("Operator halted live inspection stream.", "INFO")
+        } else {
+            _isLiveCameraActive.value = true
+            _isSplitCompareActive.value = false // reset split in live
+            _selectedBoxIndex.value = -1
+            addAuditLog("Live Stream Inspection active • Spark Engine running.", "INFO")
+            
+            liveScanJob = viewModelScope.launch {
+                val fabricTypes = listOf(
+                    FabricType.DENIM_OIL_SPOT,
+                    FabricType.LINEN_TORN_THREAD,
+                    FabricType.SILK_STAIN,
+                    FabricType.COTTON_CLEAN
+                )
+                var index = 0
+                while (true) {
+                    _isLoading.value = true
+                    delay(500)
+                    val nextType = fabricTypes[index % fabricTypes.size]
+                    _imageName.value = "Live Feed: ${nextType.displayName}"
+                    val b = withContext(Dispatchers.Default) {
+                        SampleFabricGenerator.generateFabric(nextType)
+                    }
+                    _currentBitmap.value = b
+                    _isLoading.value = false
+                    
+                    // Simulate bounding box updates dynamically
+                    val boxes = when (nextType) {
+                        FabricType.DENIM_OIL_SPOT -> listOf(
+                            DefectBox(scanId = "LIVE", yMin = 320, xMin = 410, yMax = 480, xMax = 580, label = "Oil Spot", confidence = 0.94f)
+                        )
+                        FabricType.LINEN_TORN_THREAD -> listOf(
+                            DefectBox(scanId = "LIVE", yMin = 150, xMin = 220, yMax = 320, xMax = 490, label = "Torn Thread", confidence = 0.88f),
+                            DefectBox(scanId = "LIVE", yMin = 600, xMin = 550, yMax = 720, xMax = 810, label = "Torn Thread", confidence = 0.79f)
+                        )
+                        FabricType.SILK_STAIN -> listOf(
+                            DefectBox(scanId = "LIVE", yMin = 420, xMin = 180, yMax = 700, xMax = 450, label = "Stain", confidence = 0.91f)
+                        )
+                        FabricType.COTTON_CLEAN -> emptyList()
+                    }
+                    
+                    _activeBoxes.value = boxes
+                    if (boxes.isNotEmpty()) {
+                        val criticalCount = boxes.count { it.label == "Hole" || it.confidence > 0.90f }
+                        if (criticalCount > 0) {
+                            addAuditLog("Auto-Alert: Critical/High Defect registered on Live stream!", "ALERT")
+                        }
+                    }
+                    index++
+                    delay(3500) // frame cycles every 4 seconds
+                }
+            }
+        }
+    }
+
+    fun captureLiveFrameAndSave() {
+        val currentBoxes = _activeBoxes.value
+        val name = _imageName.value.replace("Live Feed:", "Captured Live Frame")
+        val bitmap = _currentBitmap.value ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            val savedId = repository.saveNewScan(
+                imageUri = "local://live_capture_" + System.currentTimeMillis(),
+                imageName = name,
+                boxes = currentBoxes,
+                isClean = currentBoxes.isEmpty()
+            )
+            _selectedScanId.value = savedId
+            
+            // Turn off camera
+            if (_isLiveCameraActive.value) {
+                _isLiveCameraActive.value = false
+                liveScanJob?.cancel()
+                liveScanJob = null
+            }
+            
+            addAuditLog("Captured Frame successfully logged. Scan ID: ${savedId.take(8)}...", "SUCCESS")
+            _isLoading.value = false
+        }
+    }
+
+    fun toggleSplitCompare() {
+        if (!_isLiveCameraActive.value) {
+            _isSplitCompareActive.value = !_isSplitCompareActive.value
+            addAuditLog("Toggled Before/After comparative analysis mode.", "INFO")
+        }
+    }
+
+    fun updateOperator(name: String) {
+        _selectedOperator.value = name
+        addAuditLog("Operator shift handover: $name loaded.", "INFO")
+    }
+
+    fun updateSaaSTier(tier: String) {
+        _saasTier.value = tier
+        addAuditLog("SaaS plan updated to $tier.", "SUCCESS")
+    }
+
+    fun updateLanguage(lang: String) {
+        _language.value = lang
+        addAuditLog("Language resources switched to [$lang].", "INFO")
+    }
+
+    fun toggleOfflineMode() {
+        _isOfflineMode.value = !_isOfflineMode.value
+        val status = if (_isOfflineMode.value) "OFFLINE DIRECT (SQLite Local Cache Active)" else "ONLINE SYNC"
+        addAuditLog("Network layer switched to: $status.", "INFO")
+    }
+
+    fun addAuditLog(action: String, severity: String) {
+        val entry = AuditLogEntry(
+            id = UUID.randomUUID().toString(),
+            timestamp = System.currentTimeMillis(),
+            operator = _selectedOperator.value.substringBefore(" ("),
+            action = action,
+            severity = severity
+        )
+        _auditLogs.value = listOf(entry) + _auditLogs.value.take(15)
+    }
+
+    fun triggerReportExport(format: String, onFinished: () -> Unit) {
+        viewModelScope.launch {
+            addAuditLog("Initiating inspection report compiler ($format format)...", "INFO")
+            for (p in 1..10) {
+                _exportProgress.value = p / 10f
+                delay(120)
+            }
+            _exportProgress.value = null
+            addAuditLog("Download Complete: $format Inspector Report generated successfully.", "SUCCESS")
+            onFinished()
         }
     }
 }

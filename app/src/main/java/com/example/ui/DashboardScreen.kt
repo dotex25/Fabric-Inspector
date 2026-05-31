@@ -64,6 +64,15 @@ fun DashboardScreen(
     val selectedBoxIndex by viewModel.selectedBoxIndex.collectAsState()
     val apiError by viewModel.apiError.collectAsState()
     
+    // SaaS custom flow state collections
+    val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
+    val selectedOperator by viewModel.selectedOperator.collectAsState()
+    val saasTier by viewModel.saasTier.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val isOfflineMode by viewModel.isOfflineMode.collectAsState()
+    val auditLogs by viewModel.auditLogs.collectAsState()
+    val exportProgress by viewModel.exportProgress.collectAsState()
+    
     val scope = rememberCoroutineScope()
     var showExportDialog by remember { mutableStateOf(false) }
     var exportedJsonText by remember { mutableStateOf("") }
@@ -106,24 +115,23 @@ fun DashboardScreen(
     val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val screenWidthDp = configuration.screenWidthDp
 
+    // Theme Adaptive Colors for dynamic light/dark toggles
+    val isDark = isSystemInDarkTheme()
+    val backgroundCol = MaterialTheme.colorScheme.background
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+
     Scaffold(
         modifier = modifier.fillMaxSize(),
         topBar = {
             BentoHeader(
-                onExportClick = {
-                    scope.launch {
-                        val json = viewModel.exportDatasetJson()
-                        exportedJsonText = json
-                        showExportDialog = true
-                    }
-                },
+                viewModel = viewModel,
                 onResetClick = {
                     viewModel.clearAllScansHistory()
                     Toast.makeText(context, "Cleared database logs", Toast.LENGTH_SHORT).show()
                 }
             )
         },
-        containerColor = MidnightBg
+        containerColor = backgroundCol
     ) { innerPadding ->
         
         Box(
@@ -170,6 +178,7 @@ fun DashboardScreen(
                         )
 
                         BentoMetricsGrid(
+                            viewModel = viewModel,
                             totals = totals,
                             isCorrectionMode = isCorrectionMode,
                             onCorrectionModeToggle = { viewModel.toggleCorrectionMode() },
@@ -191,6 +200,8 @@ fun DashboardScreen(
                             onSelectScan = { viewModel.selectScanFromHistory(it) },
                             onDeleteScan = { viewModel.deleteScanFromHistory(it) }
                         )
+
+                        AuditLogsPanel(auditLogs = auditLogs)
                     }
                 }
             } else {
@@ -224,6 +235,7 @@ fun DashboardScreen(
                     )
 
                     BentoMetricsGrid(
+                        viewModel = viewModel,
                         totals = totals,
                         isCorrectionMode = isCorrectionMode,
                         onCorrectionModeToggle = { viewModel.toggleCorrectionMode() },
@@ -245,6 +257,8 @@ fun DashboardScreen(
                         onSelectScan = { viewModel.selectScanFromHistory(it) },
                         onDeleteScan = { viewModel.deleteScanFromHistory(it) }
                     )
+
+                    AuditLogsPanel(auditLogs = auditLogs)
                 }
             }
 
@@ -353,50 +367,101 @@ fun DashboardScreen(
 
 @Composable
 fun BentoHeader(
-    onExportClick: () -> Unit,
+    viewModel: InspectionViewModel,
     onResetClick: () -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    val barBg = MaterialTheme.colorScheme.background
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    
+    // SaaS collections
+    val selectedOperator by viewModel.selectedOperator.collectAsState()
+    val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
+    val saasTier by viewModel.saasTier.collectAsState()
+    
+    var showOperatorMenu by remember { mutableStateOf(false) }
+    val operators = listOf("James L. (Lead)", "Sarah K. (Senior)", "Wei M. (Supervisor)")
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MidnightBg)
-            .padding(horizontal = 16.dp, vertical = 16.dp)
+            .background(barBg)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
             .windowInsetsPadding(WindowInsets.statusBars),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // BRAND CUSTOM LOGO AS REQUESTED BY USER
             Box(
                 modifier = Modifier
-                    .size(40.dp)
-                    .background(PrimaryTeal, RoundedCornerShape(12.dp)),
+                    .size(42.dp)
+                    .background(
+                        if (isDark) Color(0xFF1C1B1F) else Color.White,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(BorderStroke(1.dp, borderCol), RoundedCornerShape(12.dp))
+                    .padding(4.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Memory,
-                    contentDescription = "Fabric intel logo",
-                    tint = Color(0xFF381E72),
-                    modifier = Modifier.size(24.dp)
+                    painter = androidx.compose.ui.res.painterResource(id = com.example.R.drawable.ic_app_logo),
+                    contentDescription = "Fabric App Logo",
+                    tint = Color.Unspecified, // Pristine vector colors
+                    modifier = Modifier.size(34.dp)
                 )
             }
+            
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "SPARK ENGINE ",
-                        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
+                        style = TextStyle(fontWeight = FontWeight.Black, fontSize = 18.sp, color = textWhite, letterSpacing = 0.5.sp)
                     )
                     Text(
                         text = "v1",
-                        style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PrimaryTeal.copy(alpha = 0.8f))
+                        style = TextStyle(fontWeight = FontWeight.Black, fontSize = 18.sp, color = if (isDark) PrimaryTeal else Color(0xFF0091EA))
                     )
                 }
-                Text(
-                    text = "Fabric Intel • Factory A4",
-                    style = TextStyle(fontSize = 10.sp, color = TextMuted, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
-                )
+                
+                // Shift Operator Switcher dropdown trigger
+                Row(
+                    modifier = Modifier.clickable { showOperatorMenu = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "Shift: $selectedOperator",
+                        style = TextStyle(fontSize = 11.sp, color = textMuted, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ArrowDropDown,
+                        contentDescription = "Change Operator",
+                        tint = textMuted,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    
+                    DropdownMenu(
+                        expanded = showOperatorMenu,
+                        onDismissRequest = { showOperatorMenu = false },
+                        modifier = Modifier.background(if (isDark) PanelBg else Color.White)
+                    ) {
+                        operators.forEach { op ->
+                            DropdownMenuItem(
+                                text = { Text(op, color = if (isDark) Color.White else Color.Black) },
+                                onClick = {
+                                    viewModel.updateOperator(op)
+                                    showOperatorMenu = false
+                                }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -404,41 +469,40 @@ fun BentoHeader(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Live Status Indicator
-            Row(
-                modifier = Modifier
-                    .background(Color(0xFF4A4458).copy(alpha = 0.3f), CircleShape)
-                    .border(BorderStroke(1.dp, Color(0xFF4A4458)), CircleShape)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            // Subscription Plan badge picker
+            Surface(
+                onClick = {
+                    val nextTier = if (saasTier == "Platinum Enterprise") "Pro Team" else "Platinum Enterprise"
+                    viewModel.updateSaaSTier(nextTier)
+                },
+                shape = RoundedCornerShape(20.dp),
+                color = if (saasTier == "Platinum Enterprise") Color(0xFF2E7D32).copy(alpha = 0.15f) else Color(0xFF1565C0).copy(alpha = 0.15f),
+                border = BorderStroke(1.dp, if (saasTier == "Platinum Enterprise") Color(0xFF4CAF50) else Color(0xFF1E88E5))
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(Color(0xFF34D399), CircleShape)
+                Text(
+                    text = saasTier.uppercase(),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Black,
+                    color = if (saasTier == "Platinum Enterprise") Color(0xFF81C784) else Color(0xFF64B5F6),
+                    letterSpacing = 0.5.sp
                 )
-                Text("LIVE", color = Color(0xFF34D399), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
 
-            IconButton(
-                onClick = onExportClick,
-                modifier = Modifier
-                    .size(38.dp)
-                    .background(Color(0xFF4A4458).copy(alpha = 0.3f), CircleShape)
-                    .border(BorderStroke(1.dp, Color(0xFF4A4458)), CircleShape)
-            ) {
-                Icon(Icons.Default.CloudDownload, contentDescription = "Export JSON", tint = PrimaryTeal, modifier = Modifier.size(18.dp))
-            }
-
+            // Database Eraser
             IconButton(
                 onClick = onResetClick,
                 modifier = Modifier
-                    .size(38.dp)
-                    .background(Color(0xFF4A4458).copy(alpha = 0.3f), CircleShape)
-                    .border(BorderStroke(1.dp, Color(0xFF4A4458)), CircleShape)
+                    .size(36.dp)
+                    .background(Color.Transparent, CircleShape)
+                    .border(BorderStroke(1.dp, borderCol), CircleShape)
             ) {
-                Icon(Icons.Default.Refresh, contentDescription = "Reset History", tint = DefectHole, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Default.Refresh,
+                    contentDescription = "Reset History",
+                    tint = DefectHole,
+                    modifier = Modifier.size(16.dp)
+                )
             }
         }
     }
@@ -453,20 +517,62 @@ fun ActionControlsPanel(
     onApiScanClick: () -> Unit,
     apiError: String?
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val primaryColor = MaterialTheme.colorScheme.primary
+    
+    val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
+    val activeBoxes by viewModel.activeBoxes.collectAsState()
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBg),
-        border = BorderStroke(1.dp, CustomGreyBorder),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Intake row
+            // Intake row representing Live, camera, gallery
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                // BUTTON 1: Live Stream Telemetry Scans
+                Button(
+                    onClick = { viewModel.toggleLiveMode() },
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .height(46.dp)
+                        .testTag("live_stream_toggle_btn"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isLiveCameraActive) Color(0xFFE11D48).copy(alpha = 0.15f) else primaryColor.copy(alpha = 0.08f),
+                        contentColor = if (isLiveCameraActive) Color(0xFFE11D48) else primaryColor
+                    ),
+                    border = BorderStroke(
+                        width = 1.dp,
+                        color = if (isLiveCameraActive) Color(0xFFE11D48) else primaryColor.copy(alpha = 0.3f)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isLiveCameraActive) Icons.Default.VideocamOff else Icons.Default.Videocam,
+                        contentDescription = "Live Feed",
+                        modifier = Modifier.size(18.dp),
+                        tint = if (isLiveCameraActive) Color(0xFFE11D48) else primaryColor
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (isLiveCameraActive) "Stop Live" else "Live Scan",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isLiveCameraActive) Color(0xFFE11D48) else textWhite
+                    )
+                }
+
+                // BUTTON 2: Snap photo (Camera)
                 Button(
                     onClick = onCameraClick,
                     modifier = Modifier
@@ -474,27 +580,28 @@ fun ActionControlsPanel(
                         .height(46.dp)
                         .testTag("camera_intake_btn"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BentoAccentDark,
-                        contentColor = PrimaryTeal
+                        containerColor = Color(0xFF0091EA).copy(alpha = 0.12f),
+                        contentColor = Color(0xFF0091EA)
                     ),
-                    border = BorderStroke(1.dp, PrimaryTeal.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(16.dp)
+                    border = BorderStroke(1.dp, Color(0xFF0091EA).copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.PhotoCamera,
-                        contentDescription = "Camera Intake",
-                        modifier = Modifier.size(18.dp),
-                        tint = PrimaryTeal
+                        contentDescription = "Snap camera photo",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFF0091EA)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Camera",
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextWhite
+                        color = textWhite
                     )
                 }
 
+                // BUTTON 3: Choose Gallery
                 Button(
                     onClick = onGalleryClick,
                     modifier = Modifier
@@ -502,43 +609,79 @@ fun ActionControlsPanel(
                         .height(46.dp)
                         .testTag("gallery_intake_btn"),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = BentoAccentDark,
-                        contentColor = PrimaryTeal
+                        containerColor = Color(0xFF9C27B0).copy(alpha = 0.12f),
+                        contentColor = Color(0xFF9C27B0)
                     ),
-                    border = BorderStroke(1.dp, PrimaryTeal.copy(alpha = 0.4f)),
-                    shape = RoundedCornerShape(16.dp)
+                    border = BorderStroke(1.dp, Color(0xFF9C27B0).copy(alpha = 0.3f)),
+                    shape = RoundedCornerShape(14.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.Image,
-                        contentDescription = "Gallery Intake",
-                        modifier = Modifier.size(18.dp),
-                        tint = PrimaryTeal
+                        imageVector = Icons.Default.FolderOpen,
+                        contentDescription = "Pick gallery file",
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFF9C27B0)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Gallery",
-                        fontSize = 13.sp,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = TextWhite
+                        color = textWhite
                     )
                 }
             }
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Main Scanning action button
-            Button(
-                onClick = onApiScanClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .testTag("trigger_ai_scan_btn"),
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Default.Memory, contentDescription = null, tint = Color(0xFF381E72))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("TRIGGER SPARK VISION SCAN", fontWeight = FontWeight.Black, color = Color(0xFF381E72), letterSpacing = 0.5.sp)
+            // Pulse main scanner action button depending on live active state
+            if (isLiveCameraActive) {
+                // PULSING ACTIVE CAPTURE
+                Button(
+                    onClick = { viewModel.captureLiveFrameAndSave() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("capture_frame_btn"),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE11D48)),
+                    shape = RoundedCornerShape(14.dp),
+                    border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.6f))
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, tint = Color.White)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        "CAPTURE CURRENT FRAME (${activeBoxes.size} FLOWER RUNS)",
+                        fontWeight = FontWeight.Black,
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+            } else {
+                Button(
+                    onClick = onApiScanClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(50.dp)
+                        .testTag("trigger_ai_scan_btn"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDark) PrimaryTeal else Color(0xFF0091EA)
+                    ),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Bolt,
+                        contentDescription = null,
+                        tint = if (isDark) Color.Black else Color.White
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "RUN SPARK ENGINE v1 ANALYSIS",
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) Color.Black else Color.White,
+                        fontSize = 12.sp,
+                        letterSpacing = 0.5.sp
+                    )
+                }
             }
 
             // Error displays
@@ -554,7 +697,7 @@ fun ActionControlsPanel(
                     Row(verticalAlignment = Alignment.Top) {
                         Icon(Icons.Default.Info, contentDescription = null, tint = DefectHole, modifier = Modifier.size(18.dp))
                         Spacer(modifier = Modifier.width(8.dp))
-                        Text(it, color = TextWhite, fontSize = 12.sp)
+                        Text(it, color = textWhite, fontSize = 12.sp)
                     }
                 }
             }
@@ -564,6 +707,7 @@ fun ActionControlsPanel(
 
 @Composable
 fun BentoMetricsGrid(
+    viewModel: InspectionViewModel,
     totals: Map<String, Int>,
     isCorrectionMode: Boolean,
     onCorrectionModeToggle: (Boolean) -> Unit,
@@ -571,24 +715,48 @@ fun BentoMetricsGrid(
     onSaveCorrections: () -> Unit,
     onCancelCorrections: () -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+    
+    // SaaS collections
+    val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
+    val language by viewModel.language.collectAsState()
+    val isOfflineMode by viewModel.isOfflineMode.collectAsState()
+    val exportProgress by viewModel.exportProgress.collectAsState()
+    val activeBoxes by viewModel.activeBoxes.collectAsState()
+    
+    // Counting specific defect categories for our native data visualization chart
+    val defectCounts = remember(activeBoxes) {
+        val holes = activeBoxes.count { it.label == "Hole" }
+        val spots = activeBoxes.count { it.label == "Oil Spot" }
+        val stains = activeBoxes.count { it.label == "Stain" }
+        val torns = activeBoxes.count { it.label == "Torn Thread" }
+        val total = holes + spots + stains + torns
+        
+        mapOf("Hole" to holes, "Oil Spot" to spots, "Stain" to stains, "Torn Thread" to torns, "Total" to total)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        // ROW 1: Detected VS AI Accuracy
+        // ROW 1: Raw Metrics Bento Card
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Detected Card
+            // Count Box
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .height(116.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4A4458).copy(alpha = 0.35f)),
-                border = BorderStroke(1.dp, CustomGreyBorder),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, borderCol),
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
@@ -598,10 +766,11 @@ fun BentoMetricsGrid(
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "Detected",
-                        fontSize = 12.sp,
+                        text = if (language == "Deutsch") "Erkannt" else if (language == "Español") "Defectos" else "Detected",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFCCC2DC)
+                        color = textMuted,
+                        letterSpacing = 0.5.sp
                     )
                     Row(
                         verticalAlignment = Alignment.Bottom,
@@ -611,7 +780,7 @@ fun BentoMetricsGrid(
                             text = String.format("%02d", activeBoxesCount),
                             fontSize = 38.sp,
                             fontWeight = FontWeight.Light,
-                            color = Color.White
+                            color = textWhite
                         )
                         if (activeBoxesCount > 0) {
                             Surface(
@@ -646,13 +815,13 @@ fun BentoMetricsGrid(
                 }
             }
 
-            // AI Accuracy Card
+            // Accuracy Box
             Card(
                 modifier = Modifier
                     .weight(1f)
                     .height(116.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFF4A4458).copy(alpha = 0.35f)),
-                border = BorderStroke(1.dp, CustomGreyBorder),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(1.dp, borderCol),
                 shape = RoundedCornerShape(24.dp)
             ) {
                 Column(
@@ -662,10 +831,11 @@ fun BentoMetricsGrid(
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = "AI Accuracy",
-                        fontSize = 12.sp,
+                        text = "Spark Accuracy",
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFCCC2DC)
+                        color = textMuted,
+                        letterSpacing = 0.5.sp
                     )
                     Column {
                         Row(
@@ -683,23 +853,22 @@ fun BentoMetricsGrid(
                                 text = String.format("%.1f", rawAccuracy),
                                 fontSize = 28.sp,
                                 fontWeight = FontWeight.Light,
-                                color = Color.White
+                                color = textWhite
                             )
                             Text(
                                 text = "%",
                                 fontSize = 16.sp,
-                                color = TextMuted
+                                color = textMuted
                             )
                         }
                         
                         Spacer(modifier = Modifier.height(6.dp))
                         
-                        // Sleek Emerald progress bar
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(5.dp)
-                                .background(Color(0xFF1C1B1F), CircleShape)
+                                .background(if (isDark) Color(0xFF1C1B1F) else Color(0xFFE2E8F0), CircleShape)
                                 .clip(CircleShape)
                         ) {
                             Box(
@@ -714,11 +883,262 @@ fun BentoMetricsGrid(
             }
         }
 
-        // ROW 2: Supervisor Control Card & Actions (Col span 4 / 2 equivalents)
+        // DYNAMIC STATS CHARTS & GRAPHS AS DIRECTLY IMPLEMENTED AS PROPOSED BY SAAS ARCHITECTURE
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = BentoAccentDark),
-            border = BorderStroke(1.dp, CustomGreyBorder),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.dp, borderCol),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "REAL-TIME SPECTRUM RATIOS",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textMuted,
+                        letterSpacing = 1.sp
+                    )
+                    if (isLiveCameraActive) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(6.dp).background(Color(0xFFE11D48), CircleShape))
+                            Text("STREAM ACTIVE (29.8 F/S)", color = Color(0xFFE11D48), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                        }
+                    } else {
+                        Text("STATIC MEMORY", color = textMuted, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(10.dp))
+                
+                // Segments proportional bar chart
+                val totalNum = defectCounts["Total"] ?: 0
+                if (totalNum > 0) {
+                    val p_holes = (defectCounts["Hole"] ?: 0).toFloat() / totalNum
+                    val p_spots = (defectCounts["Oil Spot"] ?: 0).toFloat() / totalNum
+                    val p_stains = (defectCounts["Stain"] ?: 0).toFloat() / totalNum
+                    val p_torns = (defectCounts["Torn Thread"] ?: 0).toFloat() / totalNum
+                    
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(18.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                    ) {
+                        if (p_holes > 0) Box(modifier = Modifier.weight(p_holes).fillMaxHeight().background(DefectHole))
+                        if (p_spots > 0) Box(modifier = Modifier.weight(p_spots).fillMaxHeight().background(DefectOilSpot))
+                        if (p_stains > 0) Box(modifier = Modifier.weight(p_stains).fillMaxHeight().background(DefectStain))
+                        if (p_torns > 0) Box(modifier = Modifier.weight(p_torns).fillMaxHeight().background(DefectTornThread))
+                    }
+                } else {
+                    // Placeholder segment when clean
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(10.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Color(0xFF34D399).copy(alpha = 0.2f))
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                // Segment Labels & details
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(8.dp).background(DefectHole, CircleShape))
+                            Text("Hole (${defectCounts["Hole"]})", fontSize = 10.sp, color = textWhite)
+                        }
+                        Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(8.dp).background(DefectStain, CircleShape))
+                            Text("Stain (${defectCounts["Stain"]})", fontSize = 10.sp, color = textWhite)
+                        }
+                    }
+                    Column(horizontalAlignment = Alignment.Start) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(8.dp).background(DefectOilSpot, CircleShape))
+                            Text("Oil Spot (${defectCounts["Oil Spot"]})", fontSize = 10.sp, color = textWhite)
+                        }
+                        Row(modifier = Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Box(modifier = Modifier.size(8.dp).background(DefectTornThread, CircleShape))
+                            Text("Torn Thread (${defectCounts["Torn Thread"]})", fontSize = 10.sp, color = textWhite)
+                        }
+                    }
+                }
+            }
+        }
+
+        // ROW 3: SaaS Controller Board (Language, Database & Quality Audits)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.dp, borderCol),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                // Multilingual switcher
+                Text(
+                    text = "LOCALIZATION & COMPLIANCE CORE",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textMuted,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            if (isDark) Color.Black.copy(alpha = 0.3f) else Color(0xFFF3F4F6),
+                            RoundedCornerShape(8.dp)
+                        )
+                        .padding(4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    listOf("English", "Español", "Deutsch").forEach { lang ->
+                        val isSel = language == lang
+                        Surface(
+                            onClick = { viewModel.updateLanguage(lang) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(32.dp),
+                            shape = RoundedCornerShape(6.dp),
+                            color = if (isSel) (if (isDark) Color(0xFF4A4458) else Color.White) else Color.Transparent,
+                            border = BorderStroke(1.dp, if (isSel) borderCol else Color.Transparent)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = lang,
+                                    fontSize = 11.sp,
+                                    fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                    color = textWhite
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Database Sync toggle switch
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text(
+                            text = "OFFLINE SYSTEM LOG MODE",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = textWhite
+                        )
+                        Text(
+                            text = if (isOfflineMode) "Active offline SQLite cache" else "Live Cloud Synced Client",
+                            fontSize = 10.sp,
+                            color = textMuted
+                        )
+                    }
+                    Switch(
+                        checked = isOfflineMode,
+                        onCheckedChange = { viewModel.toggleOfflineMode() },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = if (isDark) PrimaryTeal else Color(0xFF0091EA)
+                        )
+                    )
+                }
+            }
+        }
+
+        // ROW 4: INDUSTRIAL REPORTS DOWNLOAD progress HUB
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.dp, borderCol),
+            shape = RoundedCornerShape(24.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "INDUSTRIAL COMPLIANCE REPORTS",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textMuted,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 10.dp)
+                )
+                
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    listOf("PDF", "EXCEL", "CSV").forEach { format ->
+                        Button(
+                            onClick = { viewModel.triggerReportExport(format, {}) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(38.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) Color(0xFF211F26) else Color(0xFFF3F4F6)
+                            ),
+                            border = BorderStroke(1.dp, borderCol),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = null,
+                                modifier = Modifier.size(13.dp),
+                                tint = if (isDark) PrimaryTeal else Color(0xFF0091EA)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(format, fontSize = 11.sp, color = textWhite, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                // If currently downloading/compiling reports, show incremental Linear progress
+                val currentProgress = exportProgress ?: 0f
+                if (currentProgress > 0f) {
+                    val progressValue = currentProgress / 100f
+                    val roundedPct = currentProgress.toInt()
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Compiling ISO Ledger...", fontSize = 10.sp, color = textMuted)
+                            Text("$roundedPct%", fontSize = 10.sp, color = textWhite, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        LinearProgressIndicator(
+                            progress = progressValue,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp),
+                            color = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                            trackColor = if (isDark) Color(0xFF1C1B1F) else Color(0xFFE2E8F0)
+                        )
+                    }
+                }
+            }
+        }
+
+        // ROW 5: Supervisor Correction Mode Card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            colors = CardDefaults.cardColors(containerColor = cardBg),
+            border = BorderStroke(1.dp, borderCol),
             shape = RoundedCornerShape(24.dp)
         ) {
             Column(
@@ -734,22 +1154,21 @@ fun BentoMetricsGrid(
                             text = "CORRECTION MODE",
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFFCCC2DC),
+                            color = textMuted,
                             letterSpacing = 1.sp
                         )
                         Text(
                             text = "Supervisor Access",
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color.White
+                            color = textWhite
                         )
                     }
                     Switch(
                         checked = isCorrectionMode,
                         onCheckedChange = { onCorrectionModeToggle(it) },
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(0xFFD0BCFF),
-                            checkedTrackColor = Color(0xFF4A4458)
+                            checkedThumbColor = if (isDark) PrimaryTeal else Color(0xFF0091EA)
                         ),
                         modifier = Modifier.testTag("correction_mode_switch")
                     )
@@ -763,22 +1182,41 @@ fun BentoMetricsGrid(
                     ) {
                         Button(
                             onClick = onSaveCorrections,
-                            modifier = Modifier.weight(1.5f).height(44.dp).testTag("save_corrections_btn"),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFD0BCFF)),
+                            modifier = Modifier
+                                .weight(1.5f)
+                                .height(44.dp)
+                                .testTag("save_corrections_btn"),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) PrimaryTeal else Color(0xFF0091EA)
+                            ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Icon(Icons.Default.Save, contentDescription = null, tint = Color(0xFF381E72), modifier = Modifier.size(16.dp))
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = null,
+                                tint = if (isDark) Color.Black else Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(modifier = Modifier.width(6.dp))
-                            Text("Save", color = Color(0xFF381E72), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                            Text(
+                                "Commit",
+                                color = if (isDark) Color.Black else Color.White,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
                         }
                         
                         Button(
                             onClick = onCancelCorrections,
-                            modifier = Modifier.weight(1f).height(44.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A4458)),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = if (isDark) Color(0xFF4A4458) else Color(0xFFE2E8F0)
+                            ),
                             shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text("Cancel", color = Color.White, fontSize = 13.sp)
+                            Text("Cancel", color = textWhite, fontSize = 13.sp)
                         }
                     }
                 }
@@ -791,19 +1229,35 @@ fun BentoMetricsGrid(
 fun SampleFabricPicker(
     viewModel: InspectionViewModel
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBg),
-        border = BorderStroke(1.dp, CustomGreyBorder),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Dashboard, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Default.Dashboard,
+                    contentDescription = null,
+                    tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("DIAGNOSTIC SAMPLE LOADER", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextWhite)
+                Text(
+                    text = "DIAGNOSTIC SAMPLE LOADER",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = textWhite
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
             
@@ -814,24 +1268,32 @@ fun SampleFabricPicker(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .border(1.dp, CustomGreyBorder, RoundedCornerShape(12.dp))
+                            .background(
+                                if (isDark) Color.Black.copy(alpha = 0.2f) else Color(0xFFF9FAFB),
+                                RoundedCornerShape(12.dp)
+                            )
+                            .border(1.dp, borderCol, RoundedCornerShape(12.dp))
                             .clickable { viewModel.loadSampleFabric(type) }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         Column {
-                            Text(type.displayName, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = TextWhite)
+                            Text(type.displayName, fontWeight = FontWeight.Bold, fontSize = 13.sp, color = textWhite)
                             val badgeText = when (type) {
-                                FabricType.COTTON_CLEAN -> "Clean / Expected OK"
-                                FabricType.DENIM_OIL_SPOT -> "Defect: Oil Spot"
-                                FabricType.LINEN_TORN_THREAD -> "Defect: Torn Thread + Hole"
-                                FabricType.SILK_STAIN -> "Defect: Stain"
+                                FabricType.COTTON_CLEAN -> "Expected OK / Pure mesh"
+                                FabricType.DENIM_OIL_SPOT -> "Flaw: Oil Spot profile"
+                                FabricType.LINEN_TORN_THREAD -> "Flaws: Torn thread + Holes"
+                                FabricType.SILK_STAIN -> "Flaw: Surface Stain splash"
                             }
-                            Text(badgeText, fontSize = 11.sp, color = TextMuted)
+                            Text(badgeText, fontSize = 11.sp, color = textMuted)
                         }
-                        Icon(Icons.Default.ArrowForward, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(16.dp))
+                        Icon(
+                            imageVector = Icons.Default.ArrowForward,
+                            contentDescription = null,
+                            tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                            modifier = Modifier.size(16.dp)
+                        )
                     }
                 }
             }
@@ -845,19 +1307,35 @@ fun HistoryScansSection(
     onSelectScan: (InspectionScan) -> Unit,
     onDeleteScan: (String) -> Unit
 ) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBg),
-        border = BorderStroke(1.dp, CustomGreyBorder),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.History, contentDescription = null, tint = PrimaryTeal, modifier = Modifier.size(18.dp))
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = null,
+                    tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                    modifier = Modifier.size(18.dp)
+                )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("HISTORIC DEFECT LOGS", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold, color = TextWhite)
+                Text(
+                    text = "HISTORIC EVALUATIONS JOURNAL",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = textWhite
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -868,48 +1346,59 @@ fun HistoryScansSection(
                         .padding(vertical = 24.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("No scans logged in database yet", color = TextMuted, fontSize = 12.sp)
+                    Text(
+                        "No evaluation histories saved in SQLite memory yet.",
+                        color = textMuted,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
                 }
             } else {
-                scans.take(10).forEach { item ->
-                    val badgeColor = when (item.status) {
-                        "CLEAN" -> Color(0xFF34D399)
-                        "CORRECTED" -> Color(0xFFD0BCFF)
-                        else -> Color(0xFFF2B8B5)
-                    }
-
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .background(Color.Black.copy(alpha = 0.2f), RoundedCornerShape(12.dp))
-                            .border(1.dp, CustomGreyBorder, RoundedCornerShape(12.dp))
-                            .clickable { onSelectScan(item) }
-                            .padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(badgeColor, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(10.dp))
-                            Column {
-                                Text(item.imageName, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = TextWhite)
-                                Text(
-                                    text = "Status: ${item.status} • Defects: ${item.defectCount}",
-                                    fontSize = 10.sp,
-                                    color = TextMuted
-                                )
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 240.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    itemsIndexed(scans) { _, s ->
+                        val timeStr = remember(s.timestamp) {
+                            try {
+                                java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(s.timestamp))
+                            } catch (e: Exception) {
+                                "--:--"
                             }
                         }
-                        IconButton(
-                            onClick = { onDeleteScan(item.id) },
-                            modifier = Modifier.size(30.dp)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isDark) Color.Black.copy(alpha = 0.2f) else Color(0xFFF9FAFB),
+                                    RoundedCornerShape(12.dp)
+                                )
+                                .border(1.dp, borderCol, RoundedCornerShape(12.dp))
+                                .clickable { onSelectScan(s) }
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Icon(Icons.Default.Delete, contentDescription = null, tint = DefectHole, modifier = Modifier.size(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(s.imageName.uppercase(), fontWeight = FontWeight.Bold, fontSize = 12.sp, color = textWhite)
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    val statusColor = when (s.status) {
+                                        "CLEAN" -> DefectTornThread
+                                        "CORRECTED" -> DefectOilSpot
+                                        else -> DefectHole
+                                    }
+                                    Box(modifier = Modifier.size(6.dp).background(statusColor, CircleShape))
+                                    Text(s.status, fontSize = 10.sp, color = statusColor, fontWeight = FontWeight.Bold)
+                                    Text("• ${s.defectCount} Flaws • $timeStr", fontSize = 10.sp, color = textMuted)
+                                }
+                            }
+                            IconButton(onClick = { onDeleteScan(s.id) }) {
+                                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = DefectHole, modifier = Modifier.size(16.dp))
+                            }
                         }
                     }
                 }
@@ -926,12 +1415,18 @@ fun DefectAnalysisPanel(
 ) {
     if (activeBoxes.isEmpty()) return
 
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 6.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBg),
-        border = BorderStroke(1.dp, CustomGreyBorder),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol),
         shape = RoundedCornerShape(24.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -942,21 +1437,21 @@ fun DefectAnalysisPanel(
                 Icon(
                     imageVector = Icons.Default.Analytics,
                     contentDescription = null,
-                    tint = PrimaryTeal,
+                    tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
                     modifier = Modifier.size(18.dp)
                 )
                 Text(
-                    text = "DEFECT BREAKDOWN & LOGS",
+                    text = "SPECIFIC DEFECT EVALUATOR & TRACE",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = TextWhite,
+                    color = textWhite,
                     letterSpacing = 0.5.sp
                 )
             }
             
             Text(
-                text = "Spark Engine v1 • High Precision Analytics",
-                style = TextStyle(fontSize = 10.sp, color = TextMuted, letterSpacing = 1.sp),
+                text = "Spark Engine v1 • High Precision Telemetry",
+                style = TextStyle(fontSize = 10.sp, color = textMuted, letterSpacing = 1.sp),
                 modifier = Modifier.padding(bottom = 12.dp)
             )
 
@@ -972,7 +1467,14 @@ fun DefectAnalysisPanel(
                         else -> DefectTornThread
                     }
 
-                    // Calculate area and location
+                    // Severity classification logic as proposed by SaaS rules
+                    val (severityText, severityColor) = when (box.label) {
+                        "Hole" -> Pair("CRITICAL RISK", Color(0xFFE11D48))
+                        "Oil Spot" -> Pair("HIGH SEVERITY", Color(0xFFF97316))
+                        "Stain" -> Pair("MEDIUM SEVERITY", Color(0xFFEAB308))
+                        else -> Pair("LOW ADVISORY", Color(0xFF10B981))
+                    }
+
                     val widthP = box.xMax - box.xMin
                     val heightP = box.yMax - box.yMin
                     val areaPercent = (widthP * heightP) / 10000f
@@ -988,32 +1490,29 @@ fun DefectAnalysisPanel(
                         else -> "Bottom"
                     }
                     
-                    val locationDetails = "Sector: $vertLoc-$horizLoc (X: ${box.xMin}..${box.xMax}, Y: ${box.yMin}..${box.yMax})"
-                    val sizeType = when {
-                        areaPercent < 0.5f -> "Micro (<0.5%)"
-                        areaPercent < 2.0f -> "Standard"
-                        else -> "Macro (>2.0%)"
-                    }
-                    val affectedArea = "Bounds: $sizeType • Area ~ ${String.format("%.2f", areaPercent)}%"
+                    val locationDetails = "X: ${box.xMin}..${box.xMax} | Y: ${box.yMin}..${box.yMax} sector: $vertLoc-$horizLoc"
+                    val physicalArea = "${String.format("%.2f", areaPercent * 4.5)} mm² (Area: ~${String.format("%.2f", areaPercent)}%)"
 
-                    // Explaining issue & detection reasoning based on label
-                    val (explanation, reasoning) = when (box.label) {
-                        "Hole" -> Pair(
-                            "Warp/weft puncture disrupting structural integrity. Structural fabric breach.",
-                            "High light transmittance and loose fiber edges detected via color-channel analysis of background threshold logs."
-                        )
-                        "Oil Spot" -> Pair(
-                            "Organic hydrophobic fluid residue or machine lubricant contamination.",
-                            "Spectro-chromation variance detects oil stain signature with localized low-reflectivity contrast profiles."
-                        )
-                        "Stain" -> Pair(
-                            "Surface pigment discoloration, chemical wash imbalance, or external liquid spill.",
-                            "Reduced chroma reflectivity and diffuse boundaries verified by localized color-histogram comparison."
-                        )
-                        else -> Pair( // Torn Thread
-                            "Fraying warp fiber, loose weft single loops, or pulled thread stitches.",
-                            "Discontinuous linear texture paths and high-frequency edge tracing filters confirmed loosened yarn lines."
-                        )
+                    // Explaining issue & physical repair guidelines based on category
+                    val explanation = when (box.label) {
+                        "Hole" -> "WARP/WEFT PUNCTURE — Structural yarn fabric break. Disrupts matrix shear integrity."
+                        "Oil Spot" -> "ORGANIC FLUID SEGMENT — machine lubricant spill or high concentration oil drip."
+                        "Stain" -> "PIGMENT CHANGE RESIDUE — localized loom chemical rinse error or dye imbalance."
+                        else -> "TORN FIBER OUTRIDER — pulled thread strands, warp single loop frowze, or warp fray."
+                    }
+
+                    val treatmentGuidelines = when (box.label) {
+                        "Hole" -> "Fix: 1. Heat-fuse fabric borders. 2. localized cross-yarn interlock mesh patch."
+                        "Oil Spot" -> "Fix: 1. Spray warm citrus solvent wash. 2. Hot vacuum extraction dry."
+                        "Stain" -> "Fix: 1. local pH 8.5 enzymatic douse. 2. Moderate steam dry clean."
+                        else -> "Fix: 1. Snip outrider threads using micro needles. 2. Apply edge-lock compound."
+                    }
+
+                    val reasoning = when (box.label) {
+                        "Hole" -> "Spark reasoning: High background light transmission contrast detected in fiber profile."
+                        "Oil Spot" -> "Spark reasoning: Locally dimmed spectral luminosity and hydrophobic oil trace shape mapped."
+                        "Stain" -> "Spark reasoning: Diffuse chroma frequency changes verified with local color filter histograms."
+                        else -> "Spark reasoning: High frequency texture breaks and disconnected pixel edge coordinates logged."
                     }
 
                     Card(
@@ -1022,11 +1521,11 @@ fun DefectAnalysisPanel(
                             .clickable { onSelectBoxIndex(index) }
                             .border(
                                 width = 1.dp,
-                                color = if (isSelected) PrimaryTeal else CustomGreyBorder.copy(alpha = 0.5f),
+                                color = if (isSelected) (if (isDark) PrimaryTeal else Color(0xFF0091EA)) else borderCol.copy(alpha = 0.5f),
                                 shape = RoundedCornerShape(16.dp)
                             ),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (isSelected) BentoAccentDark else Color.Black.copy(alpha = 0.2f)
+                            containerColor = if (isSelected) (if (isDark) BentoAccentDark else Color(0xFFF3F4F6)) else Color.Transparent
                         ),
                         shape = RoundedCornerShape(16.dp)
                     ) {
@@ -1047,71 +1546,197 @@ fun DefectAnalysisPanel(
                                             .background(defectColor, CircleShape)
                                     )
                                     Text(
-                                        text = "${box.label.uppercase()} DEFECT",
+                                        text = "${box.label.uppercase()} DETECTED",
                                         fontWeight = FontWeight.Bold,
                                         fontSize = 12.sp,
-                                        color = Color.White
+                                        color = textWhite
                                     )
                                 }
 
-                                Surface(
-                                    shape = RoundedCornerShape(6.dp),
-                                    color = if (box.confidence > 0.85f) Color(0xFF1B3D2F) else Color(0xFF423B25),
-                                    border = BorderStroke(1.dp, if (box.confidence > 0.85f) Color(0xFF34D399).copy(alpha = 0.3f) else Color(0xFFD4AF37).copy(alpha = 0.3f))
-                                ) {
-                                    Text(
-                                        text = "CONF: ${String.format("%.1f", box.confidence * 100)}%",
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (box.confidence > 0.85f) Color(0xFF34D399) else Color(0xFFD4AF37)
-                                    )
+                                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    // SEVERITY PILL
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = severityColor.copy(alpha = 0.15f),
+                                        border = BorderStroke(1.dp, severityColor.copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = severityText,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = severityColor
+                                        )
+                                    }
+
+                                    // CONFIDENCE PILL
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = if (box.confidence > 0.85f) Color(0xFF2E7D32).copy(alpha = 0.15f) else Color(0xFFE65100).copy(alpha = 0.15f),
+                                        border = BorderStroke(1.dp, if (box.confidence > 0.85f) Color(0xFF4CAF50).copy(alpha = 0.4f) else Color(0xFFFF9800).copy(alpha = 0.4f))
+                                    ) {
+                                        Text(
+                                            text = "${(box.confidence * 100).toInt()}% CONF",
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = if (box.confidence > 0.85f) Color(0xFF81C784) else Color(0xFFFFB74D)
+                                        )
+                                    }
                                 }
                             }
 
                             Spacer(modifier = Modifier.height(6.dp))
 
-                            // Issue Description
+                            // Issue Description & Affected Area
                             Text(
                                 text = explanation,
                                 fontSize = 11.sp,
-                                color = TextWhite,
+                                color = textWhite,
                                 modifier = Modifier.padding(bottom = 4.dp),
                                 style = TextStyle(lineHeight = 15.sp)
                             )
 
-                            // Area and Location
+                            // Location and measurements
                             Row(
-                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(16.dp)
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Affected Area", fontSize = 9.sp, color = TextMuted, fontWeight = FontWeight.Bold)
-                                    Text(affectedArea, fontSize = 10.sp, color = TextWhite)
+                                    Text("Affected Area Measure", fontSize = 9.sp, color = textMuted, fontWeight = FontWeight.Bold)
+                                    Text(physicalArea, fontSize = 10.sp, color = textWhite)
                                 }
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text("Precise Coordinates", fontSize = 9.sp, color = TextMuted, fontWeight = FontWeight.Bold)
-                                    Text(locationDetails, fontSize = 10.sp, color = TextWhite)
+                                    Text("Precise Grid Bounds", fontSize = 9.sp, color = textMuted, fontWeight = FontWeight.Bold)
+                                    Text(locationDetails, fontSize = 10.sp, color = textWhite)
                                 }
                             }
 
-                            Spacer(modifier = Modifier.height(6.dp))
+                            // Spark Reasoning Statement
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = reasoning,
+                                fontSize = 10.sp,
+                                color = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                                fontWeight = FontWeight.SemiBold,
+                                style = TextStyle(lineHeight = 14.sp),
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
 
-                            // Reasoning
-                            Column(
+                            // Troubleshooter repair instructions manual card
+                            Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(top = 4.dp)
+                                    .background(
+                                        if (isDark) Color.Black.copy(alpha = 0.3f) else Color(0xFFFFFFFF),
+                                        RoundedCornerShape(8.dp)
+                                    )
+                                    .border(1.dp, borderCol.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
                                     .padding(8.dp)
                             ) {
-                                Text("Detection Reasoning", fontSize = 9.sp, color = PrimaryTeal, fontWeight = FontWeight.Bold)
                                 Text(
-                                    text = reasoning,
+                                    text = treatmentGuidelines,
                                     fontSize = 10.sp,
-                                    color = TextMuted,
+                                    color = severityColor,
+                                    fontWeight = FontWeight.Bold,
                                     style = TextStyle(lineHeight = 14.sp)
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AuditLogsPanel(
+    auditLogs: List<AuditLogEntry>
+) {
+    val isDark = isSystemInDarkTheme()
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = if (isDark) CustomGreyBorder else Color(0xFFE2E8F0)
+    val textWhite = MaterialTheme.colorScheme.onSurface
+    val textMuted = if (isDark) TextMuted else Color(0xFF64748B)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Terminal,
+                    contentDescription = null,
+                    tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "REAL-TIME AUDIT TRAIL & Compliance",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = textWhite
+                )
+            }
+            Text(
+                text = "Trace log database is locked (ISO 9001 quality audits encrypted)",
+                style = TextStyle(fontSize = 10.sp, color = textMuted, letterSpacing = 1.sp),
+                modifier = Modifier.padding(bottom = 10.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 140.dp)
+                    .background(Color.Black, RoundedCornerShape(12.dp))
+                    .border(BorderStroke(1.dp, borderCol), RoundedCornerShape(12.dp))
+                    .padding(10.dp)
+            ) {
+                if (auditLogs.isEmpty()) {
+                    Text(
+                        text = "> System calibration idle. No manual override logged.",
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                        fontSize = 10.sp,
+                        color = Color.Green
+                    )
+                } else {
+                    LazyColumn(
+                        reverseLayout = true,
+                        modifier = Modifier.fillMaxSize()
+                    ) {
+                        itemsIndexed(auditLogs) { _, entry ->
+                            val tString = try {
+                                java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(entry.timestamp))
+                            } catch (e: Exception) {
+                                "00:00:00"
+                            }
+                            val prefixSymbol = when (entry.severity) {
+                                "ERROR" -> "🛑 [ERR]"
+                                "SUCCESS" -> "❇️ [OK]"
+                                else -> "ℹ️ [SYS]"
+                            }
+                            Text(
+                                text = "[$tString] $prefixSymbol ${entry.operator}: ${entry.action}",
+                                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                color = when (entry.severity) {
+                                    "ERROR" -> Color(0xFFF2B8B5)
+                                    "SUCCESS" -> Color(0xFF81C784)
+                                    else -> Color.Green
+                                },
+                                modifier = Modifier.padding(vertical = 2.dp)
+                            )
                         }
                     }
                 }

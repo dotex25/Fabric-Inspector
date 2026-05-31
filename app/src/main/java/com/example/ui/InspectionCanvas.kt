@@ -3,6 +3,7 @@ package com.example.ui
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -39,6 +40,18 @@ import com.example.ui.theme.*
 import kotlin.math.abs
 
 @Composable
+fun getAdaptiveBorderColor(): Color {
+    val dark = isSystemInDarkTheme()
+    return if (dark) Color(0xFF4A4458) else Color(0xFFD1D5DB)
+}
+
+@Composable
+fun getAdaptiveMutedTextColor(): Color {
+    val dark = isSystemInDarkTheme()
+    return if (dark) Color(0xFF938F99) else Color(0xFF4B5563)
+}
+
+@Composable
 fun InspectionCanvas(
     viewModel: InspectionViewModel,
     modifier: Modifier = Modifier
@@ -48,6 +61,27 @@ fun InspectionCanvas(
     val isCorrectionMode by viewModel.isCorrectionMode.collectAsState()
     val selectedBoxIndex by viewModel.selectedBoxIndex.collectAsState()
     val tempBox by viewModel.tempDrawingBox.collectAsState()
+
+    // BRAND NEW ENTERPRISE STATES
+    val isLiveCameraActive by viewModel.isLiveCameraActive.collectAsState()
+    val isSplitCompareActive by viewModel.isSplitCompareActive.collectAsState()
+    var showOriginalOnlyInCompare by remember { mutableStateOf(false) }
+
+    var sweepY by remember { mutableStateOf(0f) }
+    LaunchedEffect(isLiveCameraActive) {
+        if (isLiveCameraActive) {
+            while (true) {
+                for (i in 0..100 step 2) {
+                    sweepY = i / 100f
+                    kotlinx.coroutines.delay(20)
+                }
+                for (i in 100 downTo 0 step 2) {
+                    sweepY = i / 100f
+                    kotlinx.coroutines.delay(20)
+                }
+            }
+        }
+    }
 
     var canvasWidthPx by remember { mutableStateOf(1f) }
     var canvasHeightPx by remember { mutableStateOf(1f) }
@@ -63,18 +97,89 @@ fun InspectionCanvas(
 
     val density = LocalDensity.current
 
+    val cardBg = MaterialTheme.colorScheme.surface
+    val borderCol = getAdaptiveBorderColor()
+    val textMuted = getAdaptiveMutedTextColor()
+    val onSurface = MaterialTheme.colorScheme.onSurface
+
     Card(
         modifier = modifier
             .fillMaxWidth()
             .padding(8.dp)
             .testTag("inspection_canvas_card"),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = PanelBg),
-        border = BorderStroke(1.dp, CustomGreyBorder)
+        colors = CardDefaults.cardColors(containerColor = cardBg),
+        border = BorderStroke(1.dp, borderCol)
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
         ) {
+            // Before / After Compare layout bar inside card header
+            if (isSplitCompareActive) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(6.dp)
+                        ) {}
+                        Text(
+                            text = "COMPARISON ASSISTANT",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Black,
+                            color = MaterialTheme.colorScheme.primary,
+                            letterSpacing = 0.5.sp
+                        )
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Surface(
+                            onClick = { showOriginalOnlyInCompare = true },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (showOriginalOnlyInCompare) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            border = BorderStroke(1.dp, if (showOriginalOnlyInCompare) Color.Transparent else borderCol)
+                        ) {
+                            Text(
+                                text = "BEFORE (RAW)",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = if (showOriginalOnlyInCompare) Color.White else textMuted
+                            )
+                        }
+
+                        Surface(
+                            onClick = { showOriginalOnlyInCompare = false },
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (!showOriginalOnlyInCompare) MaterialTheme.colorScheme.primary else Color.Transparent,
+                            border = BorderStroke(1.dp, if (!showOriginalOnlyInCompare) Color.Transparent else borderCol)
+                        ) {
+                            Text(
+                                text = "AFTER (ANALYZED)",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                color = if (!showOriginalOnlyInCompare) Color.White else textMuted
+                            )
+                        }
+                    }
+                }
+            }
+
             // Label status bar
             Row(
                 modifier = Modifier
@@ -83,25 +188,37 @@ fun InspectionCanvas(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "LIVE INTERACTIVE CANVAS WORKSPACE",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextMuted,
-                    letterSpacing = 1.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    if (isLiveCameraActive) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(Color(0xFFE11D48), CircleShape) // Ruby pulsing recording dot
+                        )
+                    }
+                    Text(
+                        text = if (isLiveCameraActive) "REAL-TIME MATRIX VISION STREAM" else "LIVE INTERACTIVE CANVAS WORKSPACE",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = textMuted,
+                        letterSpacing = 1.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
                 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = if (isCorrectionMode) DefectOilSpot.copy(alpha = 0.15f) else Color(0xFF4A4458).copy(alpha = 0.3f),
-                    border = BorderStroke(1.dp, if (isCorrectionMode) DefectOilSpot else CustomGreyBorder)
+                    color = if (isLiveCameraActive) Color(0xFFE11D48).copy(alpha = 0.1f) else if (isCorrectionMode) DefectOilSpot.copy(alpha = 0.15f) else Color(0xFF4A4458).copy(alpha = 0.15f),
+                    border = BorderStroke(1.dp, if (isLiveCameraActive) Color(0xFFE11D48) else if (isCorrectionMode) DefectOilSpot else borderCol)
                 ) {
                     Text(
-                        text = if (isCorrectionMode) "SUPERVISOR EDIT ACTIVE" else "MONITORING MODE",
+                        text = if (isLiveCameraActive) "LIVE ACQUISITION SCAN" else if (isCorrectionMode) "SUPERVISOR EDIT ACTIVE" else "MONITORING MODE",
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                         style = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Bold,
-                        color = if (isCorrectionMode) DefectOilSpot else TextMuted,
+                        color = if (isLiveCameraActive) Color(0xFFE11D48) else if (isCorrectionMode) DefectOilSpot else textMuted,
                         letterSpacing = 0.5.sp
                     )
                 }
@@ -111,14 +228,14 @@ fun InspectionCanvas(
                 modifier = Modifier
                     .fillMaxWidth()
                     .weight(1f)
-                    .background(Color.Black.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+                    .background(Color.Black, RoundedCornerShape(8.dp))
                     .clip(RoundedCornerShape(8.dp))
                     .onGloballyPositioned { coordinates ->
                         canvasWidthPx = coordinates.size.width.toFloat()
                         canvasHeightPx = coordinates.size.height.toFloat()
                     }
-                    .pointerInput(isCorrectionMode) {
-                        if (!isCorrectionMode) return@pointerInput
+                    .pointerInput(isCorrectionMode, showOriginalOnlyInCompare) {
+                        if (!isCorrectionMode || showOriginalOnlyInCompare) return@pointerInput
 
                         detectDragGestures(
                             onDragStart = { offset ->
@@ -244,97 +361,99 @@ fun InspectionCanvas(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text("NO ACTIVE IMAGE FEED LOADED", color = TextMuted)
+                    Text("NO ACTIVE IMAGE FEED LOADED", color = textMuted, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                 }
 
-                // Render bounding boxes
-                activeBoxes.forEachIndexed { index, box ->
-                    val color = when (box.label) {
-                        "Hole" -> DefectHole
-                        "Oil Spot" -> DefectOilSpot
-                        "Stain" -> DefectStain
-                        else -> DefectTornThread
-                    }
-
-                    // Convert normalized bounds (0-1000) into actual UI px coordinates
-                    val boundsLeft = maxWidth * (box.xMin / 1000f)
-                    val boundsTop = maxHeight * (box.yMin / 1000f)
-                    val boundsWidth = maxWidth * ((box.xMax - box.xMin) / 1000f)
-                    val boundsHeight = maxHeight * ((box.yMax - box.yMin) / 1000f)
-
-                    val isSelected = (selectedBoxIndex == index)
-
-                    Box(
-                        modifier = Modifier
-                            .offset(x = boundsLeft, y = boundsTop)
-                            .size(width = maxOf(boundsWidth, 14.dp), height = maxOf(boundsHeight, 14.dp))
-                            .border(
-                                border = BorderStroke(
-                                    width = if (isSelected) 3.dp else 2.dp,
-                                    color = if (isSelected) Color.White else color
-                                ),
-                                shape = RoundedCornerShape(4.dp)
-                            )
-                            .testTag("defect_box_$index")
-                    ) {
-                        // Resize Dot handles on corners of selected box
-                        if (isSelected && isCorrectionMode) {
-                            // Top-Left Dot
-                            Box(modifier = Modifier.align(Alignment.TopStart).offset((-4).dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
-                            // Top-Right Dot
-                            Box(modifier = Modifier.align(Alignment.TopEnd).offset(4.dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
-                            // Bottom-Left Dot
-                            Box(modifier = Modifier.align(Alignment.BottomStart).offset((-4).dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
-                            // Bottom-Right Dot
-                            Box(modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
+                // Render bounding boxes if we are not hiding them in comparison raw view
+                if (!showOriginalOnlyInCompare) {
+                    activeBoxes.forEachIndexed { index, box ->
+                        val color = when (box.label) {
+                            "Hole" -> DefectHole
+                            "Oil Spot" -> DefectOilSpot
+                            "Stain" -> DefectStain
+                            else -> DefectTornThread
                         }
-                    }
 
-                    // Render label tag as a sibling above/below the bounding box so it never clips by small widths
-                    val labelTop = if (boundsTop < 22.dp) boundsTop + maxOf(boundsHeight, 14.dp) + 4.dp else boundsTop - 22.dp
-                    Box(
-                        modifier = Modifier
-                            .offset(x = boundsLeft, y = labelTop)
-                            .widthIn(min = 120.dp)
-                    ) {
-                        Row(
+                        // Convert normalized bounds (0-1000) into actual UI px coordinates
+                        val boundsLeft = maxWidth * (box.xMin / 1000f)
+                        val boundsTop = maxHeight * (box.yMin / 1000f)
+                        val boundsWidth = maxWidth * ((box.xMax - box.xMin) / 1000f)
+                        val boundsHeight = maxHeight * ((box.yMax - box.yMin) / 1000f)
+
+                        val isSelected = (selectedBoxIndex == index)
+
+                        Box(
                             modifier = Modifier
-                                .background(
-                                    if (isSelected) Color.White else color,
-                                    RoundedCornerShape(4.dp)
+                                .offset(x = boundsLeft, y = boundsTop)
+                                .size(width = maxOf(boundsWidth, 14.dp), height = maxOf(boundsHeight, 14.dp))
+                                .border(
+                                    border = BorderStroke(
+                                        width = if (isSelected) 3.dp else 2.dp,
+                                        color = if (isSelected) Color.White else color
+                                    ),
+                                    shape = RoundedCornerShape(4.dp)
                                 )
-                                .padding(horizontal = 6.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                                .testTag("defect_box_$index")
                         ) {
-                            Box(
+                            // Resize Dot handles on corners of selected box
+                            if (isSelected && isCorrectionMode) {
+                                // Top-Left Dot
+                                Box(modifier = Modifier.align(Alignment.TopStart).offset((-4).dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
+                                // Top-Right Dot
+                                Box(modifier = Modifier.align(Alignment.TopEnd).offset(4.dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
+                                // Bottom-Left Dot
+                                Box(modifier = Modifier.align(Alignment.BottomStart).offset((-4).dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
+                                // Bottom-Right Dot
+                                Box(modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
+                            }
+                        }
+
+                        // Render label tag as a sibling above/below the bounding box so it never clips by small widths
+                        val labelTop = if (boundsTop < 22.dp) boundsTop + maxOf(boundsHeight, 14.dp) + 4.dp else boundsTop - 22.dp
+                        Box(
+                            modifier = Modifier
+                                .offset(x = boundsLeft, y = labelTop)
+                                .widthIn(min = 120.dp)
+                        ) {
+                            Row(
                                 modifier = Modifier
-                                    .size(6.dp)
-                                    .background(if (isSelected) Color.Black else Color.White, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${box.label} (${(box.confidence * 100).toInt()}%)",
-                                style = androidx.compose.ui.text.TextStyle(
-                                    color = if (isSelected) Color.Black else Color.White,
-                                    fontSize = 10.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
-                                    letterSpacing = 0.5.sp
-                                ),
-                                maxLines = 1,
-                                softWrap = false
-                            )
-                            if (isCorrectionMode) {
-                                Spacer(modifier = Modifier.width(6.dp))
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "Delete box",
-                                    tint = if (isSelected) Color.Black else Color.White,
+                                    .background(
+                                        if (isSelected) Color.White else color,
+                                        RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
                                     modifier = Modifier
-                                        .size(12.dp)
-                                        .clickable {
-                                            viewModel.deleteBox(index)
-                                        }
+                                        .size(6.dp)
+                                        .background(if (isSelected) Color.Black else Color.White, CircleShape)
                                 )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${box.label} (${(box.confidence * 100).toInt()}%)",
+                                    style = androidx.compose.ui.text.TextStyle(
+                                        color = if (isSelected) Color.Black else Color.White,
+                                        fontSize = 10.sp,
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                                        letterSpacing = 0.5.sp
+                                    ),
+                                    maxLines = 1,
+                                    softWrap = false
+                                )
+                                if (isCorrectionMode) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete box",
+                                        tint = if (isSelected) Color.Black else Color.White,
+                                        modifier = Modifier
+                                            .size(12.dp)
+                                            .clickable {
+                                                viewModel.deleteBox(index)
+                                            }
+                                    )
+                                }
                             }
                         }
                     }
@@ -361,17 +480,39 @@ fun InspectionCanvas(
                         }
                     }
                 }
+
+                // Render Live Camera laser sweeping line
+                if (isLiveCameraActive) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .fillMaxWidth()
+                            .offset(y = maxHeight * sweepY)
+                            .height(3.dp)
+                            .background(
+                                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color(0xFFE11D48).copy(alpha = 0.1f),
+                                        Color(0xFFE11D48),
+                                        Color(0xFFE11D48).copy(alpha = 0.1f)
+                                    )
+                                )
+                            )
+                    )
+                }
             }
 
             // Quick instruction help footer inside the canvas Card
             Text(
-                text = if (isCorrectionMode) {
+                text = if (isLiveCameraActive) {
+                    "★ Live stream is active! Real-time telemetry is updating. Click 'CAPTURE RUNNING FRAME' below to log frame."
+                } else if (isCorrectionMode) {
                     "★ Drag center of any box to reposition. Drag corners to resize. Drag blank space to create a NEW box."
                 } else {
                     "ℹ Enable Supervisor Correction Mode below to adjust bounding boxes or click-n-drag to catalog new errors."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (isCorrectionMode) DefectOilSpot else TextMuted,
+                color = if (isCorrectionMode) DefectOilSpot else textMuted,
                 modifier = Modifier.padding(top = 8.dp)
             )
         }

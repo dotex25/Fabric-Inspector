@@ -1,0 +1,84 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="128dp"
+    android:height="128dp"
+    android:viewportWidth="100"
+    android:viewportHeight="100">
+
+    <!-- Outer dashed circular stitching border (Blue color #0288D1) -->
+    <path
+        android:pathData="M 50,8 A 42,42 0 1,1 49.9,8"
+        android:strokeColor="#0091EA"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Solid Blue Circle Connector Thread Node at Top-Right -->
+    <path
+        android:pathData="M 78,16 A 4,4 0 1,1 77.9,16"
+        android:fillColor="#0091EA" />
+    <path
+        android:pathData="M 78,16 L 85,24"
+        android:strokeColor="#0091EA"
+        android:strokeWidth="1.5" />
+
+    <!-- Purple/Magenta stitched inner frame (Purple color #A24294) -->
+    <path
+        android:pathData="M 31,21 A 32,32 0 1,0 83,50"
+        android:strokeColor="#A24294"
+        android:strokeWidth="4"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Magenta Circle Head decoration at Top-Left origin ofpurple curve -->
+    <path
+        android:pathData="M 31,21 A 4.5,4.5 0 1,1 30.9,21"
+        android:fillColor="#A24294" />
+
+    <!-- Center Left crescent/semi-circle segmented wheel (Blue Color #0091EA) -->
+    <path
+        android:pathData="M 47,35 A 18,18 0 0,0 29,53 A 18,18 0 0,0 47,71 M 47,35 L 47,53 L 47,71 M 47,53 L 65,54"
+        android:strokeColor="#0091EA"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Thread loop that laces through the needle's eye (Blue color #0091EA) -->
+    <path
+        android:pathData="M 27,10 Q 50,20 73,15 Q 75,25 50,17 Q 45,15 27,10"
+        android:strokeColor="#0091EA"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Center vertical sewing needle (Blue color #0091EA) -->
+    <!-- Needle body -->
+    <path
+        android:pathData="M 49,8 C 48.5,8 48,15 48,22 L 48,68 L 50,78 L 52,68 L 52,22 C 52,15 51.5,8 51,8"
+        android:fillColor="#0091EA" />
+    <!-- Needle Eye cutout -->
+    <path
+        android:pathData="M 50,11 L 50,19"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- Small Scissors on the Right Side (Cutting Purple Thread) -->
+    <!-- Handles (pink/purple #A24294) -->
+    <path
+        android:pathData="M 83,27 A 3,3 0 1,1 82.9,27"
+        android:strokeColor="#A24294"
+        android:strokeWidth="2.0"
+        android:fillColor="#00000000" />
+    <path
+        android:pathData="M 71,31 A 3,3 0 1,1 70.9,31"
+        android:strokeColor="#A24294"
+        android:strokeWidth="2.0"
+        android:fillColor="#00000000" />
+    <!-- Blade pivots -->
+    <path
+        android:pathData="M 73,33 L 90,41 M 81,29 L 79,47"
+        android:strokeColor="#A24294"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round" />
+</vector>
