@@ -183,9 +183,7 @@ class InspectionViewModel(
 
     // SELECT box on the canvas
     fun selectBox(index: Int) {
-        if (_isCorrectionMode.value) {
-            _selectedBoxIndex.value = index
-        }
+        _selectedBoxIndex.value = if (_selectedBoxIndex.value == index) -1 else index
     }
 
     fun toggleCorrectionMode() {

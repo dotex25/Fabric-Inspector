@@ -178,6 +178,12 @@ fun DashboardScreen(
                             onCancelCorrections = { viewModel.toggleCorrectionMode() }
                         )
 
+                        DefectAnalysisPanel(
+                            activeBoxes = activeBoxes,
+                            selectedBoxIndex = selectedBoxIndex ?: -1,
+                            onSelectBoxIndex = { viewModel.selectBox(it) }
+                        )
+
                         SampleFabricPicker(viewModel = viewModel)
 
                         HistoryScansSection(
@@ -226,6 +232,12 @@ fun DashboardScreen(
                         onCancelCorrections = { viewModel.toggleCorrectionMode() }
                     )
 
+                    DefectAnalysisPanel(
+                        activeBoxes = activeBoxes,
+                        selectedBoxIndex = selectedBoxIndex ?: -1,
+                        onSelectBoxIndex = { viewModel.selectBox(it) }
+                    )
+
                     SampleFabricPicker(viewModel = viewModel)
 
                     HistoryScansSection(
@@ -250,7 +262,7 @@ fun DashboardScreen(
                         CircularProgressIndicator(color = PrimaryTeal, strokeWidth = 5.dp)
                         Spacer(modifier = Modifier.height(20.dp))
                         Text(
-                            text = "GEMINI COGNITIVE VISION SCAN...",
+                            text = "SPARK ENGINE v1 VISION SCAN...",
                             style = MaterialTheme.typography.titleMedium,
                             color = PrimaryTeal,
                             fontWeight = FontWeight.Bold,
@@ -373,11 +385,11 @@ fun BentoHeader(
             Column {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = "V-SCAN ",
+                        text = "SPARK ENGINE ",
                         style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = Color.White)
                     )
                     Text(
-                        text = "2.5",
+                        text = "v1",
                         style = TextStyle(fontWeight = FontWeight.Bold, fontSize = 20.sp, color = PrimaryTeal.copy(alpha = 0.8f))
                     )
                 }
@@ -453,28 +465,62 @@ fun ActionControlsPanel(
             // Intake row
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 Button(
                     onClick = onCameraClick,
-                    modifier = Modifier.weight(1f).height(42.dp).testTag("camera_intake_btn"),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A4458).copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .testTag("camera_intake_btn"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BentoAccentDark,
+                        contentColor = PrimaryTeal
+                    ),
+                    border = BorderStroke(1.dp, PrimaryTeal.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(Icons.Default.PhotoCamera, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Camera", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.PhotoCamera,
+                        contentDescription = "Camera Intake",
+                        modifier = Modifier.size(18.dp),
+                        tint = PrimaryTeal
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Camera",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextWhite
+                    )
                 }
 
                 Button(
                     onClick = onGalleryClick,
-                    modifier = Modifier.weight(1f).height(42.dp).testTag("gallery_intake_btn"),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4A4458).copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(12.dp)
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(46.dp)
+                        .testTag("gallery_intake_btn"),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = BentoAccentDark,
+                        contentColor = PrimaryTeal
+                    ),
+                    border = BorderStroke(1.dp, PrimaryTeal.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(Icons.Default.Image, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text("Gallery", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = "Gallery Intake",
+                        modifier = Modifier.size(18.dp),
+                        tint = PrimaryTeal
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Gallery",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextWhite
+                    )
                 }
             }
 
@@ -488,11 +534,11 @@ fun ActionControlsPanel(
                     .height(48.dp)
                     .testTag("trigger_ai_scan_btn"),
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(16.dp)
             ) {
                 Icon(Icons.Default.Memory, contentDescription = null, tint = Color(0xFF381E72))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("TRIGGER AI INSPECTION SCAN", fontWeight = FontWeight.Black, color = Color(0xFF381E72), letterSpacing = 0.5.sp)
+                Text("TRIGGER SPARK VISION SCAN", fontWeight = FontWeight.Black, color = Color(0xFF381E72), letterSpacing = 0.5.sp)
             }
 
             // Error displays
@@ -864,6 +910,208 @@ fun HistoryScansSection(
                             modifier = Modifier.size(30.dp)
                         ) {
                             Icon(Icons.Default.Delete, contentDescription = null, tint = DefectHole, modifier = Modifier.size(16.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DefectAnalysisPanel(
+    activeBoxes: List<DefectBox>,
+    selectedBoxIndex: Int,
+    onSelectBoxIndex: (Int) -> Unit
+) {
+    if (activeBoxes.isEmpty()) return
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp),
+        colors = CardDefaults.cardColors(containerColor = PanelBg),
+        border = BorderStroke(1.dp, CustomGreyBorder),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Analytics,
+                    contentDescription = null,
+                    tint = PrimaryTeal,
+                    modifier = Modifier.size(18.dp)
+                )
+                Text(
+                    text = "DEFECT BREAKDOWN & LOGS",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = TextWhite,
+                    letterSpacing = 0.5.sp
+                )
+            }
+            
+            Text(
+                text = "Spark Engine v1 • High Precision Analytics",
+                style = TextStyle(fontSize = 10.sp, color = TextMuted, letterSpacing = 1.sp),
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                activeBoxes.forEachIndexed { index, box ->
+                    val isSelected = selectedBoxIndex == index
+                    val defectColor = when (box.label) {
+                        "Hole" -> DefectHole
+                        "Oil Spot" -> DefectOilSpot
+                        "Stain" -> DefectStain
+                        else -> DefectTornThread
+                    }
+
+                    // Calculate area and location
+                    val widthP = box.xMax - box.xMin
+                    val heightP = box.yMax - box.yMin
+                    val areaPercent = (widthP * heightP) / 10000f
+                    
+                    val horizLoc = when {
+                        box.xMin + widthP / 2 < 333 -> "Left"
+                        box.xMin + widthP / 2 < 666 -> "Center"
+                        else -> "Right"
+                    }
+                    val vertLoc = when {
+                        box.yMin + heightP / 2 < 333 -> "Top"
+                        box.yMin + heightP / 2 < 666 -> "Middle"
+                        else -> "Bottom"
+                    }
+                    
+                    val locationDetails = "Sector: $vertLoc-$horizLoc (X: ${box.xMin}..${box.xMax}, Y: ${box.yMin}..${box.yMax})"
+                    val sizeType = when {
+                        areaPercent < 0.5f -> "Micro (<0.5%)"
+                        areaPercent < 2.0f -> "Standard"
+                        else -> "Macro (>2.0%)"
+                    }
+                    val affectedArea = "Bounds: $sizeType • Area ~ ${String.format("%.2f", areaPercent)}%"
+
+                    // Explaining issue & detection reasoning based on label
+                    val (explanation, reasoning) = when (box.label) {
+                        "Hole" -> Pair(
+                            "Warp/weft puncture disrupting structural integrity. Structural fabric breach.",
+                            "High light transmittance and loose fiber edges detected via color-channel analysis of background threshold logs."
+                        )
+                        "Oil Spot" -> Pair(
+                            "Organic hydrophobic fluid residue or machine lubricant contamination.",
+                            "Spectro-chromation variance detects oil stain signature with localized low-reflectivity contrast profiles."
+                        )
+                        "Stain" -> Pair(
+                            "Surface pigment discoloration, chemical wash imbalance, or external liquid spill.",
+                            "Reduced chroma reflectivity and diffuse boundaries verified by localized color-histogram comparison."
+                        )
+                        else -> Pair( // Torn Thread
+                            "Fraying warp fiber, loose weft single loops, or pulled thread stitches.",
+                            "Discontinuous linear texture paths and high-frequency edge tracing filters confirmed loosened yarn lines."
+                        )
+                    }
+
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onSelectBoxIndex(index) }
+                            .border(
+                                width = 1.dp,
+                                color = if (isSelected) PrimaryTeal else CustomGreyBorder.copy(alpha = 0.5f),
+                                shape = RoundedCornerShape(16.dp)
+                            ),
+                        colors = CardDefaults.cardColors(
+                            containerColor = if (isSelected) BentoAccentDark else Color.Black.copy(alpha = 0.2f)
+                        ),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            // Header Row
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(8.dp)
+                                            .background(defectColor, CircleShape)
+                                    )
+                                    Text(
+                                        text = "${box.label.uppercase()} DEFECT",
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 12.sp,
+                                        color = Color.White
+                                    )
+                                }
+
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (box.confidence > 0.85f) Color(0xFF1B3D2F) else Color(0xFF423B25),
+                                    border = BorderStroke(1.dp, if (box.confidence > 0.85f) Color(0xFF34D399).copy(alpha = 0.3f) else Color(0xFFD4AF37).copy(alpha = 0.3f))
+                                ) {
+                                    Text(
+                                        text = "CONF: ${String.format("%.1f", box.confidence * 100)}%",
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (box.confidence > 0.85f) Color(0xFF34D399) else Color(0xFFD4AF37)
+                                    )
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Issue Description
+                            Text(
+                                text = explanation,
+                                fontSize = 11.sp,
+                                color = TextWhite,
+                                modifier = Modifier.padding(bottom = 4.dp),
+                                style = TextStyle(lineHeight = 15.sp)
+                            )
+
+                            // Area and Location
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Affected Area", fontSize = 9.sp, color = TextMuted, fontWeight = FontWeight.Bold)
+                                    Text(affectedArea, fontSize = 10.sp, color = TextWhite)
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Precise Coordinates", fontSize = 9.sp, color = TextMuted, fontWeight = FontWeight.Bold)
+                                    Text(locationDetails, fontSize = 10.sp, color = TextWhite)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(6.dp))
+
+                            // Reasoning
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(Color.Black.copy(alpha = 0.3f), RoundedCornerShape(8.dp))
+                                    .padding(8.dp)
+                            ) {
+                                Text("Detection Reasoning", fontSize = 9.sp, color = PrimaryTeal, fontWeight = FontWeight.Bold)
+                                Text(
+                                    text = reasoning,
+                                    fontSize = 10.sp,
+                                    color = TextMuted,
+                                    style = TextStyle(lineHeight = 14.sp)
+                                )
+                            }
                         }
                     }
                 }

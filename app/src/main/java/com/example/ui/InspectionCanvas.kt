@@ -262,42 +262,69 @@ fun InspectionCanvas(
                     val boundsWidth = maxWidth * ((box.xMax - box.xMin) / 1000f)
                     val boundsHeight = maxHeight * ((box.yMax - box.yMin) / 1000f)
 
-                    val isSelected = isCorrectionMode && (selectedBoxIndex == index)
+                    val isSelected = (selectedBoxIndex == index)
 
                     Box(
                         modifier = Modifier
                             .offset(x = boundsLeft, y = boundsTop)
-                            .size(width = boundsWidth, height = boundsHeight)
+                            .size(width = maxOf(boundsWidth, 14.dp), height = maxOf(boundsHeight, 14.dp))
                             .border(
                                 border = BorderStroke(
                                     width = if (isSelected) 3.dp else 2.dp,
                                     color = if (isSelected) Color.White else color
                                 ),
-                                shape = RoundedCornerShape(2.dp)
+                                shape = RoundedCornerShape(4.dp)
                             )
                             .testTag("defect_box_$index")
                     ) {
-                        // Label tag at the top of the defect bounding box
+                        // Resize Dot handles on corners of selected box
+                        if (isSelected && isCorrectionMode) {
+                            // Top-Left Dot
+                            Box(modifier = Modifier.align(Alignment.TopStart).offset((-4).dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
+                            // Top-Right Dot
+                            Box(modifier = Modifier.align(Alignment.TopEnd).offset(4.dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
+                            // Bottom-Left Dot
+                            Box(modifier = Modifier.align(Alignment.BottomStart).offset((-4).dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
+                            // Bottom-Right Dot
+                            Box(modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
+                        }
+                    }
+
+                    // Render label tag as a sibling above/below the bounding box so it never clips by small widths
+                    val labelTop = if (boundsTop < 22.dp) boundsTop + maxOf(boundsHeight, 14.dp) + 4.dp else boundsTop - 22.dp
+                    Box(
+                        modifier = Modifier
+                            .offset(x = boundsLeft, y = labelTop)
+                            .widthIn(min = 120.dp)
+                    ) {
                         Row(
                             modifier = Modifier
-                                .offset(y = (-18).dp)
                                 .background(
                                     if (isSelected) Color.White else color,
-                                    RoundedCornerShape(2.dp)
+                                    RoundedCornerShape(4.dp)
                                 )
-                                .padding(horizontal = 4.dp, vertical = 1.dp),
+                                .padding(horizontal = 6.dp, vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(6.dp)
+                                    .background(if (isSelected) Color.Black else Color.White, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
                                 text = "${box.label} (${(box.confidence * 100).toInt()}%)",
                                 style = androidx.compose.ui.text.TextStyle(
                                     color = if (isSelected) Color.Black else Color.White,
                                     fontSize = 10.sp,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                )
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Black,
+                                    letterSpacing = 0.5.sp
+                                ),
+                                maxLines = 1,
+                                softWrap = false
                             )
                             if (isCorrectionMode) {
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Icon(
                                     imageVector = Icons.Default.Delete,
                                     contentDescription = "Delete box",
@@ -309,18 +336,6 @@ fun InspectionCanvas(
                                         }
                                 )
                             }
-                        }
-
-                        // Resize Dot handles on corners of selected box
-                        if (isSelected) {
-                            // Top-Left Dot
-                            Box(modifier = Modifier.align(Alignment.TopStart).offset((-4).dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
-                            // Top-Right Dot
-                            Box(modifier = Modifier.align(Alignment.TopEnd).offset(4.dp, (-4).dp).size(8.dp).background(Color.White, CircleShape))
-                            // Bottom-Left Dot
-                            Box(modifier = Modifier.align(Alignment.BottomStart).offset((-4).dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
-                            // Bottom-Right Dot
-                            Box(modifier = Modifier.align(Alignment.BottomEnd).offset(4.dp, 4.dp).size(8.dp).background(Color.White, CircleShape))
                         }
                     }
                 }
