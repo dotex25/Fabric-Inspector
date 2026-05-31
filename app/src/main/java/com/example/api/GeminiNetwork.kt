@@ -130,7 +130,8 @@ object GeminiScanner {
     suspend fun inspectFabric(
         bitmap: Bitmap,
         pastCorrections: List<com.example.data.DefectBox>,
-        customApiKey: String? = null
+        customApiKey: String? = null,
+        customModel: String? = null
     ): List<DefectApiResponse> {
         val apiKey = if (!customApiKey.isNullOrBlank()) customApiKey else BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
@@ -183,9 +184,9 @@ object GeminiScanner {
             )
         )
 
-        // Using "gemini-2.5-flash" as the default model
+        val targetModel = if (!customModel.isNullOrBlank()) customModel else "gemini-2.5-flash"
         val response = RetrofitClient.service.generateContent(
-            model = "gemini-2.5-flash",
+            model = targetModel,
             apiKey = apiKey,
             request = request
         )
@@ -198,5 +199,47 @@ object GeminiScanner {
         val adapter = RetrofitClient.getMoshi().adapter<List<DefectApiResponse>>(listType)
         
         return adapter.fromJson(responseText) ?: emptyList()
+    }
+
+    // Direct dynamic validation of custom keys and model types
+    suspend fun testApiKeyAndModel(apiKey: String, model: String): String {
+        if (apiKey.isBlank()) {
+            return "ERROR: Custom API Key is empty."
+        }
+        val testRequest = GenerateContentRequest(
+            contents = listOf(
+                Content(parts = listOf(Part(text = "Say active")))
+            ),
+            generationConfig = GenerationConfig(
+                temperature = 0.1f
+            )
+        )
+        return try {
+            val response = RetrofitClient.service.generateContent(
+                model = model,
+                apiKey = apiKey,
+                request = testRequest
+            )
+            val reply = response.candidates?.firstOrNull()?.content?.parts?.firstOrNull()?.text
+            if (!reply.isNullOrBlank()) {
+                "SUCCESS: Model '$model' is responsive & reachable!"
+            } else {
+                "SUCCESS: Model standard latency check passed."
+            }
+        } catch (e: retrofit2.HttpException) {
+            val code = e.code()
+            val errorBody = e.response()?.errorBody()?.string() ?: ""
+            if (code == 429) {
+                "LIMIT EXCEEDED (429): Selected model or key is rate limited. Choose another tier or key."
+            } else if (code == 400 && errorBody.contains("API_KEY_INVALID", ignoreCase = true)) {
+                "AUTH ERROR (400): Key authentication signature failed. Correct the text pattern."
+            } else if (code == 503) {
+                "SERVICE TEMPORARILY DOWN (503): Model backend overloaded. Try 'gemini-1.5-flashfallback'."
+            } else {
+                "CONNECT ERROR ($code): ${e.message() ?: "HTTP error"} - ${if (errorBody.length > 80) errorBody.take(80) + "..." else errorBody}"
+            }
+        } catch (e: Exception) {
+            "NETWORK FAILURE: ${e.localizedMessage ?: "Unknown connectivity error"}"
+        }
     }
 }

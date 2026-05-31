@@ -1,5 +1,6 @@
 package com.example.ui
 
+import com.example.BuildConfig
 import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
@@ -76,6 +77,15 @@ class InspectionViewModel(
     private val _customApiKey = MutableStateFlow<String>("")
     val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
 
+    private val _selectedModel = MutableStateFlow<String>("gemini-2.5-flash")
+    val selectedModel: StateFlow<String> = _selectedModel.asStateFlow()
+
+    private val _apiValidationResult = MutableStateFlow<String?>(null)
+    val apiValidationResult: StateFlow<String?> = _apiValidationResult.asStateFlow()
+
+    private val _isTestingApi = MutableStateFlow<Boolean>(false)
+    val isTestingApi: StateFlow<Boolean> = _isTestingApi.asStateFlow()
+
     // NEW ENTERPRISE STATE FLOWS
     private val _isLiveCameraActive = MutableStateFlow<Boolean>(false)
     val isLiveCameraActive: StateFlow<Boolean> = _isLiveCameraActive.asStateFlow()
@@ -120,6 +130,7 @@ class InspectionViewModel(
     private fun loadCustomApiKey() {
         val prefs = getApplication<Application>().getSharedPreferences("fabric_inspect_prefs", Context.MODE_PRIVATE)
         _customApiKey.value = prefs.getString("custom_gemini_api_key", "") ?: ""
+        _selectedModel.value = prefs.getString("custom_gemini_model", "gemini-2.5-flash") ?: "gemini-2.5-flash"
     }
 
     fun updateCustomApiKey(key: String) {
@@ -127,6 +138,37 @@ class InspectionViewModel(
         prefs.edit().putString("custom_gemini_api_key", key).apply()
         _customApiKey.value = key
         addAuditLog("Custom Gemini API Key updated in settings.", "SUCCESS")
+    }
+
+    fun updateCustomConfig(key: String, model: String) {
+        val prefs = getApplication<Application>().getSharedPreferences("fabric_inspect_prefs", Context.MODE_PRIVATE)
+        prefs.edit()
+            .putString("custom_gemini_api_key", key)
+            .putString("custom_gemini_model", model)
+            .apply()
+        _customApiKey.value = key
+        _selectedModel.value = model
+        addAuditLog("Dynamic Engine configuration saved. Model=$model", "SUCCESS")
+    }
+
+    fun testCurrentKeyAndModelInSettings(testKey: String, testModel: String) {
+        viewModelScope.launch {
+            _isTestingApi.value = true
+            _apiValidationResult.value = "Connecting to Google Cloud servers using model '$testModel'..."
+            try {
+                val apiToUse = if (testKey.isNotBlank()) testKey else BuildConfig.GEMINI_API_KEY
+                val result = GeminiScanner.testApiKeyAndModel(apiToUse, testModel)
+                _apiValidationResult.value = result
+            } catch (e: Exception) {
+                _apiValidationResult.value = "CONNECT ERROR: ${e.localizedMessage ?: "Unknown connection anomaly"}"
+            } finally {
+                _isTestingApi.value = false
+            }
+        }
+    }
+
+    fun clearApiValidationResult() {
+        _apiValidationResult.value = null
     }
 
     // Load sample fabric generated programmatically
@@ -199,7 +241,8 @@ class InspectionViewModel(
                 val results = GeminiScanner.inspectFabric(
                     bitmap = bitmap,
                     pastCorrections = historicalCorrectionsList,
-                    customApiKey = _customApiKey.value.takeIf { it.isNotBlank() }
+                    customApiKey = _customApiKey.value.takeIf { it.isNotBlank() },
+                    customModel = _selectedModel.value.takeIf { it.isNotBlank() }
                 )
                 
                 // Map the api results to Local DefectBox entities

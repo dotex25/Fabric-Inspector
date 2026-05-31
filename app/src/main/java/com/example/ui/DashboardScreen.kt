@@ -130,9 +130,6 @@ fun DashboardScreen(
                 onResetClick = {
                     viewModel.clearAllScansHistory()
                     Toast.makeText(context, "Cleared database logs", Toast.LENGTH_SHORT).show()
-                },
-                onSettingsClick = {
-                    showSettingsDialog = true
                 }
             )
         },
@@ -179,7 +176,8 @@ fun DashboardScreen(
                             onGalleryClick = { galleryLauncher.launch("image/*") },
                             onCameraClick = { cameraLauncher.launch() },
                             onApiScanClick = { viewModel.scanFabricWithAI() },
-                            apiError = apiError
+                            apiError = apiError,
+                            onSettingsClick = { showSettingsDialog = true }
                         )
 
                         BentoMetricsGrid(
@@ -236,7 +234,8 @@ fun DashboardScreen(
                         onGalleryClick = { galleryLauncher.launch("image/*") },
                         onCameraClick = { cameraLauncher.launch() },
                         onApiScanClick = { viewModel.scanFabricWithAI() },
-                        apiError = apiError
+                        apiError = apiError,
+                        onSettingsClick = { showSettingsDialog = true }
                     )
 
                     BentoMetricsGrid(
@@ -372,12 +371,8 @@ fun DashboardScreen(
     // Modal Settings Configuration Dialog
     if (showSettingsDialog) {
         GeminiSettingsDialog(
-            currentApiKey = customApiKey,
-            onDismiss = { showSettingsDialog = false },
-            onSave = { newKey ->
-                viewModel.updateCustomApiKey(newKey)
-                showSettingsDialog = false
-            }
+            viewModel = viewModel,
+            onDismiss = { showSettingsDialog = false }
         )
     }
 }
@@ -385,8 +380,7 @@ fun DashboardScreen(
 @Composable
 fun BentoHeader(
     viewModel: InspectionViewModel,
-    onResetClick: () -> Unit,
-    onSettingsClick: () -> Unit
+    onResetClick: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val barBg = MaterialTheme.colorScheme.background
@@ -522,36 +516,39 @@ fun BentoHeader(
                     modifier = Modifier.size(16.dp)
                 )
             }
-
-            // API Settings Key Configuration
-            IconButton(
-                onClick = onSettingsClick,
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Color.Transparent, CircleShape)
-                    .border(BorderStroke(1.dp, borderCol), CircleShape)
-                    .testTag("settings_btn")
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Settings,
-                    contentDescription = "Configure API Key",
-                    tint = PrimaryTeal,
-                    modifier = Modifier.size(16.dp)
-                )
-            }
         }
     }
 }
 
 @Composable
 fun GeminiSettingsDialog(
-    currentApiKey: String,
-    onDismiss: () -> Unit,
-    onSave: (String) -> Unit
+    viewModel: InspectionViewModel,
+    onDismiss: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
-    var keyText by remember { mutableStateOf(currentApiKey) }
+    val customApiKey by viewModel.customApiKey.collectAsState()
+    val selectedModel by viewModel.selectedModel.collectAsState()
+    val isTestingApi by viewModel.isTestingApi.collectAsState()
+    val apiValidationResult by viewModel.apiValidationResult.collectAsState()
+
+    var keyText by remember { mutableStateOf(customApiKey) }
     var keyVisible by remember { mutableStateOf(false) }
+    var modelSelection by remember { mutableStateOf(selectedModel) }
+    var dropdownExpanded by remember { mutableStateOf(false) }
+
+    val modelsList = listOf(
+        "gemini-2.5-flash",
+        "gemini-2.5-pro",
+        "gemini-1.5-flash",
+        "gemini-1.5-pro",
+        "gemini-2.0-flash-exp"
+    )
+
+    DisposableEffect(Unit) {
+        onDispose {
+            viewModel.clearApiValidationResult()
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -565,7 +562,7 @@ fun GeminiSettingsDialog(
         text = {
             Column {
                 Text(
-                    text = "If you encounter 429 API rate limits, enter your personal Gemini API Key below. This key overrides the factory default securely in local device storage.",
+                    text = "Configure your personal Gemini API Key and Model. This overrides defaults securely in local storage to prevent rate limits or service interruptions.",
                     color = if (isDark) TextMuted else Color.DarkGray,
                     fontSize = 12.sp,
                     modifier = Modifier.padding(bottom = 12.dp)
@@ -601,36 +598,175 @@ fun GeminiSettingsDialog(
                     )
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(6.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.Start
                 ) {
                     Text(
-                        text = "Leave empty to restore the default pre-configured key.",
+                        text = "Leave empty to restore pre-configured default credentials.",
                         color = if (isDark) TextMuted.copy(alpha = 0.8f) else Color.Gray,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Normal
                     )
                 }
+
+                // MODEL SELECTION DROPDOWN
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "Select Scanning Model:",
+                    color = if (isDark) TextWhite else Color.Black,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = { dropdownExpanded = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("model_select_dropdown_trigger"),
+                        shape = RoundedCornerShape(10.dp),
+                        border = BorderStroke(1.dp, if (isDark) CustomGreyBorder else Color.LightGray),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = if (isDark) TextWhite else Color.Black
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(modelSelection, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = "Dropdown")
+                        }
+                    }
+
+                    DropdownMenu(
+                        expanded = dropdownExpanded,
+                        onDismissRequest = { dropdownExpanded = false },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (isDark) PanelBg else Color.White)
+                    ) {
+                        modelsList.forEach { model ->
+                            DropdownMenuItem(
+                                text = { 
+                                    Column {
+                                        Text(
+                                            text = model, 
+                                            color = if (isDark) Color.White else Color.Black,
+                                            fontWeight = if (model == modelSelection) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        val desc = when (model) {
+                                            "gemini-2.5-flash" -> "Recommended - high speed, precise coords"
+                                            "gemini-2.5-pro" -> "Superior intelligence & accuracy"
+                                            "gemini-1.5-flash" -> "Legacy fast pattern scanning"
+                                            "gemini-1.5-pro" -> "Stable legacy multi-defect extractions"
+                                            else -> "Experimental latest features release"
+                                        }
+                                        Text(desc, fontSize = 9.sp, color = if (isDark) TextMuted else Color.Gray)
+                                    }
+                                },
+                                onClick = {
+                                    modelSelection = model
+                                    dropdownExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                // LIVE SERVER AVAILABILITY CHECKER
+                Spacer(modifier = Modifier.height(14.dp))
+                Button(
+                    onClick = {
+                        viewModel.testCurrentKeyAndModelInSettings(keyText, modelSelection)
+                    },
+                    enabled = !isTestingApi,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (isDark) Color(0xFF27272A) else Color(0xFFF4F4F5),
+                        contentColor = if (isDark) TextWhite else Color.Black
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp)
+                        .testTag("test_key_btn")
+                ) {
+                    if (isTestingApi) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = PrimaryTeal,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Verifying Endpoint Connection...", fontSize = 11.sp, color = if (isDark) TextWhite else Color.Black)
+                    } else {
+                        Icon(Icons.Default.CloudQueue, contentDescription = null, modifier = Modifier.size(14.dp), tint = PrimaryTeal)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("TEST KEY & MODEL AVAILABILITY", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = if (isDark) TextWhite else Color.Black)
+                    }
+                }
+
+                apiValidationResult?.let { result ->
+                    Spacer(modifier = Modifier.height(10.dp))
+                    val isSuccess = result.startsWith("SUCCESS")
+                    val isLimitExceeded = result.contains("429")
+                    val bgCol = when {
+                        isSuccess -> Color(0xFF1B5E20).copy(alpha = 0.12f)
+                        isLimitExceeded -> Color(0xFFE65100).copy(alpha = 0.12f)
+                        else -> Color(0xFFB71C1C).copy(alpha = 0.12f)
+                    }
+                    val borderCol = when {
+                        isSuccess -> Color(0xFF4CAF50)
+                        isLimitExceeded -> Color(0xFFFFA726)
+                        else -> Color(0xFFF44336)
+                    }
+                    val textCol = when {
+                        isSuccess -> Color(0xFF81C784)
+                        isLimitExceeded -> Color(0xFFFFB74D)
+                        else -> Color(0xFFE57373)
+                    }
+                    
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(bgCol, RoundedCornerShape(8.dp))
+                            .border(1.dp, borderCol, RoundedCornerShape(8.dp))
+                            .padding(10.dp)
+                    ) {
+                        Text(
+                            text = result,
+                            color = if (isDark) textCol else Color.DarkGray,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
             Button(
-                onClick = { onSave(keyText) },
+                onClick = { 
+                    viewModel.updateCustomConfig(keyText, modelSelection)
+                    onDismiss()
+                },
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
                 modifier = Modifier.testTag("save_settings_btn")
             ) {
-                Text("Save Key", color = Color.Black, fontWeight = FontWeight.Bold)
+                Text("Apply & Use Engine", color = Color.Black, fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (currentApiKey.isNotBlank()) {
+                if (customApiKey.isNotBlank()) {
                     TextButton(
                         onClick = {
                             keyText = ""
-                            onSave("")
+                            viewModel.updateCustomConfig("", modelSelection)
+                            onDismiss()
                         },
                         modifier = Modifier.testTag("clear_settings_btn")
                     ) {
@@ -653,7 +789,8 @@ fun ActionControlsPanel(
     onGalleryClick: () -> Unit,
     onCameraClick: () -> Unit,
     onApiScanClick: () -> Unit,
-    apiError: String?
+    apiError: String?,
+    onSettingsClick: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val cardBg = MaterialTheme.colorScheme.surface
@@ -818,6 +955,53 @@ fun ActionControlsPanel(
                         color = if (isDark) Color.Black else Color.White,
                         fontSize = 12.sp,
                         letterSpacing = 0.5.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // Dynamic model state indicator and settings trigger
+            val currentSavedModel by viewModel.selectedModel.collectAsState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSettingsClick() }
+                    .background(if (isDark) Color(0xFF1E1E1E) else Color(0xFFF1F5F9), RoundedCornerShape(12.dp))
+                    .border(1.dp, borderCol.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .testTag("settings_btn"),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Settings,
+                        contentDescription = "Configure Engine",
+                        tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Engine Settings & Custom Key",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textWhite
+                    )
+                }
+                
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = currentSavedModel.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Black,
+                        color = if (isDark) PrimaryTeal else Color(0xFF0091EA)
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Open Settings",
+                        tint = if (isDark) TextMuted else Color.Gray,
+                        modifier = Modifier.size(14.dp)
                     )
                 }
             }
