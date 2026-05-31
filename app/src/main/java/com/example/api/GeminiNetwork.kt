@@ -73,6 +73,10 @@ object GeminiScanner {
             
             Your task is to analyze the provided fabric image of a garment panel or finished piece, isolate any manufacturing discrepancies, and extract their spatial coordinate boundaries. You must ignore intentional fabric designs, print patterns (like polka dots or stripes), and normal texture shadows.
             
+            ### SPECIAL INSTRUCTION FOR QUALITY CONTROL ADHESIVE STICKERS/MARKERS:
+            Garment factory checkers place bright physical colored adhesive tags/labels (such as orange, green, yellow, pink, or red circles, arrows, stars, or tapes) directly on or next to a defect to mark it for repair. 
+            You MUST treat these colored stickers as high-priority cues of defect presence. Always draw your bounding box around the sticker itself or the fabric defect that the sticker points to or overlaps, and assign the proper classification from the directory (e.g. "Hole / Tear", "Dye Stain", "Oil Spot", etc.) that matches the real physical defect located under or adjacent to that sticker. Do not classify the sticker itself as a defect category; detect the actual defect indicated by the sticker.
+            
             Identify and locate all instances of garment and fabric defects. You must return a structured JSON array matching this Pydantic schema:
             [{
               "box_2d": [ymin, xmin, ymax, xmax], 

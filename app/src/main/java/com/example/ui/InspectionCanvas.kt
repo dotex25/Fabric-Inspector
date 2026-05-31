@@ -36,6 +36,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.foundation.Image
 import coil.compose.AsyncImage
 import com.example.data.DefectBox
 import com.example.ui.theme.*
@@ -243,14 +245,46 @@ fun InspectionCanvas(
                         canvasWidthPx = coordinates.size.width.toFloat()
                         canvasHeightPx = coordinates.size.height.toFloat()
                     }
-                    .pointerInput(isCorrectionMode, showOriginalOnlyInCompare) {
+                    .pointerInput(isCorrectionMode, showOriginalOnlyInCompare, bitmap, canvasWidthPx, canvasHeightPx) {
                         if (!isCorrectionMode || showOriginalOnlyInCompare) return@pointerInput
+
+                        // Calculate dynamic scale factors inside pixel coordinate domain safely
+                        val safeCanvasW = if (canvasWidthPx > 0f) canvasWidthPx else 1f
+                        val safeCanvasH = if (canvasHeightPx > 0f) canvasHeightPx else 1f
+
+                        val (displayedWidthPx, displayedHeightPx) = if (bitmap != null) {
+                            val imgW = bitmap!!.width.toFloat()
+                            val imgH = bitmap!!.height.toFloat()
+                            if (imgW > 0f && imgH > 0f) {
+                                val imageAspect = imgW / imgH
+                                val containerAspect = safeCanvasW / safeCanvasH
+                                if (imageAspect > containerAspect) {
+                                    Pair(safeCanvasW, safeCanvasW / imageAspect)
+                                } else {
+                                    Pair(safeCanvasH * imageAspect, safeCanvasH)
+                                }
+                            } else {
+                                Pair(safeCanvasW, safeCanvasH)
+                            }
+                        } else {
+                            Pair(safeCanvasW, safeCanvasH)
+                        }
+
+                        val offsetXPx = if (bitmap != null) (safeCanvasW - displayedWidthPx) / 2 else 0f
+                        val offsetYPx = if (bitmap != null) (safeCanvasH - displayedHeightPx) / 2 else 0f
+
+                        val w = if (displayedWidthPx > 0f) displayedWidthPx else 1f
+                        val h = if (displayedHeightPx > 0f) displayedHeightPx else 1f
 
                         detectDragGestures(
                             onDragStart = { offset ->
                                 dragStartPoint = offset
-                                val touchXNormalized = ((offset.x / canvasWidthPx) * 1000).toInt()
-                                val touchYNormalized = ((offset.y / canvasHeightPx) * 1000).toInt()
+                                val relativeX = offset.x - offsetXPx
+                                val relativeY = offset.y - offsetYPx
+                                val pctX = (relativeX / w).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+                                val pctY = (relativeY / h).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+                                val touchXNormalized = (pctX * 1000).toInt()
+                                val touchYNormalized = (pctY * 1000).toInt()
 
                                 val currentActiveBoxes = activeBoxesState.value
                                 val currentSelectedBoxIndex = selectedBoxIndexState.value ?: -1
@@ -318,18 +352,28 @@ fun InspectionCanvas(
                             onDrag = { change, dragAmount ->
                                 change.consume()
                                 val currentOffset = change.position
-                                val startXNorm = ((dragStartPoint.x / canvasWidthPx) * 1000).toInt()
-                                val startYNorm = ((dragStartPoint.y / canvasHeightPx) * 1000).toInt()
-                                val currentXNorm = ((currentOffset.x / canvasWidthPx) * 1000).toInt()
-                                val currentYNorm = ((currentOffset.y / canvasHeightPx) * 1000).toInt()
+                                val relativeStartX = dragStartPoint.x - offsetXPx
+                                val relativeStartY = dragStartPoint.y - offsetYPx
+                                val relativeCurrentX = currentOffset.x - offsetXPx
+                                val relativeCurrentY = currentOffset.y - offsetYPx
+
+                                val pctStartX = (relativeStartX / w).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+                                val pctStartY = (relativeStartY / h).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+                                val pctCurrentX = (relativeCurrentX / w).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+                                val pctCurrentY = (relativeCurrentY / h).let { if (it.isNaN()) 0f else it }.coerceIn(0f, 1f)
+
+                                val startXNorm = (pctStartX * 1000).toInt()
+                                val startYNorm = (pctStartY * 1000).toInt()
+                                val currentXNorm = (pctCurrentX * 1000).toInt()
+                                val currentYNorm = (pctCurrentY * 1000).toInt()
 
                                 val currentSelectedBoxIndex = selectedBoxIndexState.value ?: -1
                                 val currentActiveBoxes = activeBoxesState.value
 
                                 when (activeGestureType) {
                                     "MOVE" -> {
-                                        val dxPct = dragAmount.x / canvasWidthPx
-                                        val dyPct = dragAmount.y / canvasHeightPx
+                                        val dxPct = if (w > 0f) dragAmount.x / w else 0f
+                                        val dyPct = if (h > 0f) dragAmount.y / h else 0f
                                         viewModel.moveSelectedBox(currentSelectedBoxIndex, dxPct, dyPct)
                                     }
                                     "DRAW" -> {
@@ -385,10 +429,41 @@ fun InspectionCanvas(
                         )
                     }
             ) {
+                // Calculate dynamic Dp display sizes for correct canvas overlay layout matching ContentScale.Fit
+                val containerWidthDp = maxWidth.value
+                val containerHeightDp = maxHeight.value
+
+                val (displayedWidthDp, displayedHeightDp) = if (bitmap != null) {
+                    val imgW = bitmap!!.width.toFloat()
+                    val imgH = bitmap!!.height.toFloat()
+                    if (imgW > 0f && imgH > 0f) {
+                        val imageAspect = imgW / imgH
+                        val containerAspect = containerWidthDp / containerHeightDp
+                        if (imageAspect > containerAspect) {
+                            Pair(containerWidthDp, containerWidthDp / imageAspect)
+                        } else {
+                            Pair(containerHeightDp * imageAspect, containerHeightDp)
+                        }
+                    } else {
+                        Pair(containerWidthDp, containerHeightDp)
+                    }
+                } else {
+                    Pair(containerWidthDp, containerHeightDp)
+                }
+
+                val offsetXDp = if (bitmap != null) (containerWidthDp - displayedWidthDp) / 2 else 0f
+                val offsetYDp = if (bitmap != null) (containerHeightDp - displayedHeightDp) / 2 else 0f
+
+                val displayedWidth = displayedWidthDp.dp
+                val displayedHeight = displayedHeightDp.dp
+                val offsetX = offsetXDp.dp
+                val offsetY = offsetYDp.dp
+
                 // Base Fabric Image under test
                 bitmap?.let {
-                    AsyncImage(
-                        model = it,
+                    val imgBitmap = remember(it) { it.asImageBitmap() }
+                    Image(
+                        bitmap = imgBitmap,
                         contentDescription = "Fabric Visual Feed",
                         modifier = Modifier
                             .fillMaxSize()
@@ -412,11 +487,16 @@ fun InspectionCanvas(
                             else -> DefectTornThread
                         }
 
-                        // Convert normalized bounds (0-1000) into actual UI px coordinates
-                        val boundsLeft = maxWidth * (box.xMin / 1000f)
-                        val boundsTop = maxHeight * (box.yMin / 1000f)
-                        val boundsWidth = maxWidth * ((box.xMax - box.xMin) / 1000f)
-                        val boundsHeight = maxHeight * ((box.yMax - box.yMin) / 1000f)
+                        // Convert normalized bounds (0-1000) into actual UI px coordinates relative to the fit-scaled image canvas safely
+                        val realXMin = minOf(box.xMin, box.xMax)
+                        val realXMax = maxOf(box.xMin, box.xMax)
+                        val realYMin = minOf(box.yMin, box.yMax)
+                        val realYMax = maxOf(box.yMin, box.yMax)
+
+                        val boundsLeft = offsetX + displayedWidth * (realXMin / 1000f)
+                        val boundsTop = offsetY + displayedHeight * (realYMin / 1000f)
+                        val boundsWidth = displayedWidth * ((realXMax - realXMin) / 1000f)
+                        val boundsHeight = displayedHeight * ((realYMax - realYMin) / 1000f)
 
                         val isSelected = (selectedBoxIndex == index)
 
@@ -499,10 +579,10 @@ fun InspectionCanvas(
 
                 // Render dynamic TEMPORARY drawing box bounds in real-time
                 tempBox?.let { coords ->
-                    val dl = maxWidth * (coords[1] / 1000f)
-                    val dt = maxHeight * (coords[0] / 1000f)
-                    val dw = maxWidth * ((coords[3] - coords[1]) / 1000f)
-                    val dh = maxHeight * ((coords[2] - coords[0]) / 1000f)
+                    val dl = offsetX + displayedWidth * (coords[1] / 1000f)
+                    val dt = offsetY + displayedHeight * (coords[0] / 1000f)
+                    val dw = displayedWidth * ((coords[3] - coords[1]) / 1000f)
+                    val dh = displayedHeight * ((coords[2] - coords[0]) / 1000f)
 
                     Box(
                         modifier = Modifier
@@ -519,13 +599,13 @@ fun InspectionCanvas(
                     }
                 }
 
-                // Render Live Camera laser sweeping line
+                // Render Live Camera laser sweeping line mapped to the actual image boundaries
                 if (isLiveCameraActive) {
                     Box(
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .fillMaxWidth()
-                            .offset(y = maxHeight * sweepY)
+                            .offset(y = offsetY + displayedHeight * sweepY)
                             .height(3.dp)
                             .background(
                                 brush = androidx.compose.ui.graphics.Brush.verticalGradient(

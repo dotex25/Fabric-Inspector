@@ -1821,22 +1821,27 @@ fun DefectAnalysisPanel(
                         else -> Pair("LOW ADVISORY", Color(0xFF10B981))
                     }
 
-                    val widthP = box.xMax - box.xMin
-                    val heightP = box.yMax - box.yMin
+                    val xMinVal = minOf(box.xMin, box.xMax)
+                    val xMaxVal = maxOf(box.xMin, box.xMax)
+                    val yMinVal = minOf(box.yMin, box.yMax)
+                    val yMaxVal = maxOf(box.yMin, box.yMax)
+
+                    val widthP = xMaxVal - xMinVal
+                    val heightP = yMaxVal - yMinVal
                     val areaPercent = (widthP * heightP) / 10000f
                     
                     val horizLoc = when {
-                        box.xMin + widthP / 2 < 333 -> "Left"
-                        box.xMin + widthP / 2 < 666 -> "Center"
+                        xMinVal + widthP / 2 < 333 -> "Left"
+                        xMinVal + widthP / 2 < 666 -> "Center"
                         else -> "Right"
                     }
                     val vertLoc = when {
-                        box.yMin + heightP / 2 < 333 -> "Top"
-                        box.yMin + heightP / 2 < 666 -> "Middle"
+                        yMinVal + heightP / 2 < 333 -> "Top"
+                        yMinVal + heightP / 2 < 666 -> "Middle"
                         else -> "Bottom"
                     }
                     
-                    val locationDetails = "X: ${box.xMin}..${box.xMax} | Y: ${box.yMin}..${box.yMax} sector: $vertLoc-$horizLoc"
+                    val locationDetails = "X: $xMinVal..$xMaxVal | Y: $yMinVal..$yMaxVal sector: $vertLoc-$horizLoc"
                     val physicalArea = "${String.format("%.2f", areaPercent * 4.5)} mm² (Area: ~${String.format("%.2f", areaPercent)}%)"
 
                     // Explaining issue & physical repair guidelines based on category
