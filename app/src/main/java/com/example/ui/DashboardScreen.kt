@@ -1484,18 +1484,18 @@ fun DefectAnalysisPanel(
             ) {
                 activeBoxes.forEachIndexed { index, box ->
                     val isSelected = selectedBoxIndex == index
-                    val defectColor = when (box.label) {
-                        "Hole" -> DefectHole
-                        "Oil Spot" -> DefectOilSpot
-                        "Stain" -> DefectStain
+                    val defectColor = when {
+                        box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> DefectHole
+                        box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> DefectOilSpot
+                        box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> DefectStain
                         else -> DefectTornThread
                     }
 
                     // Severity classification logic as proposed by SaaS rules
-                    val (severityText, severityColor) = when (box.label) {
-                        "Hole" -> Pair("CRITICAL RISK", Color(0xFFE11D48))
-                        "Oil Spot" -> Pair("HIGH SEVERITY", Color(0xFFF97316))
-                        "Stain" -> Pair("MEDIUM SEVERITY", Color(0xFFEAB308))
+                    val (severityText, severityColor) = when {
+                        box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> Pair("CRITICAL RISK", Color(0xFFE11D48))
+                        box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> Pair("HIGH SEVERITY", Color(0xFFF97316))
+                        box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> Pair("MEDIUM SEVERITY", Color(0xFFEAB308))
                         else -> Pair("LOW ADVISORY", Color(0xFF10B981))
                     }
 
@@ -1518,24 +1518,24 @@ fun DefectAnalysisPanel(
                     val physicalArea = "${String.format("%.2f", areaPercent * 4.5)} mm² (Area: ~${String.format("%.2f", areaPercent)}%)"
 
                     // Explaining issue & physical repair guidelines based on category
-                    val explanation = when (box.label) {
-                        "Hole" -> "WARP/WEFT PUNCTURE — Structural yarn fabric break. Disrupts matrix shear integrity."
-                        "Oil Spot" -> "ORGANIC FLUID SEGMENT — machine lubricant spill or high concentration oil drip."
-                        "Stain" -> "PIGMENT CHANGE RESIDUE — localized loom chemical rinse error or dye imbalance."
+                    val explanation = when {
+                        box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> "WARP/WEFT PUNCTURE — Structural yarn fabric break. Disrupts matrix shear integrity."
+                        box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> "ORGANIC FLUID SEGMENT — machine lubricant spill or high concentration oil drip."
+                        box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> "PIGMENT CHANGE RESIDUE — localized loom chemical rinse error or dye imbalance."
                         else -> "TORN FIBER OUTRIDER — pulled thread strands, warp single loop frowze, or warp fray."
                     }
 
-                    val treatmentGuidelines = when (box.label) {
-                        "Hole" -> "Fix: 1. Heat-fuse fabric borders. 2. localized cross-yarn interlock mesh patch."
-                        "Oil Spot" -> "Fix: 1. Spray warm citrus solvent wash. 2. Hot vacuum extraction dry."
-                        "Stain" -> "Fix: 1. local pH 8.5 enzymatic douse. 2. Moderate steam dry clean."
+                    val treatmentGuidelines = when {
+                        box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> "Fix: 1. Heat-fuse fabric borders. 2. localized cross-yarn interlock mesh patch."
+                        box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> "Fix: 1. Spray warm citrus solvent wash. 2. Hot vacuum extraction dry."
+                        box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> "Fix: 1. local pH 8.5 enzymatic douse. 2. Moderate steam dry clean."
                         else -> "Fix: 1. Snip outrider threads using micro needles. 2. Apply edge-lock compound."
                     }
 
-                    val reasoning = when (box.label) {
-                        "Hole" -> "Spark reasoning: High background light transmission contrast detected in fiber profile."
-                        "Oil Spot" -> "Spark reasoning: Locally dimmed spectral luminosity and hydrophobic oil trace shape mapped."
-                        "Stain" -> "Spark reasoning: Diffuse chroma frequency changes verified with local color filter histograms."
+                    val reasoning = when {
+                        box.label.contains("Hole", ignoreCase = true) || box.label.contains("Tear", ignoreCase = true) -> "Spark reasoning: High background light transmission contrast detected in fiber profile."
+                        box.label.contains("Oil", ignoreCase = true) || box.label.contains("Grease", ignoreCase = true) -> "Spark reasoning: Locally dimmed spectral luminosity and hydrophobic oil trace shape mapped."
+                        box.label.contains("Stain", ignoreCase = true) || box.label.contains("Dye", ignoreCase = true) -> "Spark reasoning: Diffuse chroma frequency changes verified with local color filter histograms."
                         else -> "Spark reasoning: High frequency texture breaks and disconnected pixel edge coordinates logged."
                     }
 

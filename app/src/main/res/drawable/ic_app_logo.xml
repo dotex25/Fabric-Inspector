@@ -4,6 +4,11 @@
     android:viewportWidth="100"
     android:viewportHeight="100">
 
+    <!-- Red bookmark/ribbon banner at top-right corner (#E11D48) -->
+    <path
+        android:pathData="M 76,0 L 96,0 L 96,28 L 86,19 L 76,28 Z"
+        android:fillColor="#E11D48" />
+
     <!-- Outer dashed circular stitching border (Blue color #0288D1) -->
     <path
         android:pathData="M 50,8 A 42,42 0 1,1 49.9,8"

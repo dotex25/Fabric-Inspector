@@ -315,20 +315,32 @@ fun InspectionCanvas(
                                         viewModel.setTempDrawingBox(ymin, xmin, ymax, xmax)
                                     }
                                     "RESIZE_TL" -> {
-                                        val currentBox = activeBoxes[selectedBoxIndex!!]
-                                        viewModel.resizeSelectedBox(selectedBoxIndex!!, currentYNorm, currentXNorm, currentBox.yMax, currentBox.xMax)
+                                        val idx = selectedBoxIndex ?: -1
+                                        if (idx in activeBoxes.indices) {
+                                            val currentBox = activeBoxes[idx]
+                                            viewModel.resizeSelectedBox(idx, currentYNorm, currentXNorm, currentBox.yMax, currentBox.xMax)
+                                        }
                                     }
                                     "RESIZE_TR" -> {
-                                        val currentBox = activeBoxes[selectedBoxIndex!!]
-                                        viewModel.resizeSelectedBox(selectedBoxIndex!!, currentYNorm, currentBox.xMin, currentBox.yMax, currentXNorm)
+                                        val idx = selectedBoxIndex ?: -1
+                                        if (idx in activeBoxes.indices) {
+                                            val currentBox = activeBoxes[idx]
+                                            viewModel.resizeSelectedBox(idx, currentYNorm, currentBox.xMin, currentBox.yMax, currentXNorm)
+                                        }
                                     }
                                     "RESIZE_BL" -> {
-                                        val currentBox = activeBoxes[selectedBoxIndex!!]
-                                        viewModel.resizeSelectedBox(selectedBoxIndex!!, currentBox.yMin, currentXNorm, currentYNorm, currentBox.xMax)
+                                        val idx = selectedBoxIndex ?: -1
+                                        if (idx in activeBoxes.indices) {
+                                            val currentBox = activeBoxes[idx]
+                                            viewModel.resizeSelectedBox(idx, currentBox.yMin, currentXNorm, currentYNorm, currentBox.xMax)
+                                        }
                                     }
                                     "RESIZE_BR" -> {
-                                        val currentBox = activeBoxes[selectedBoxIndex!!]
-                                        viewModel.resizeSelectedBox(selectedBoxIndex!!, currentBox.yMin, currentBox.xMin, currentYNorm, currentXNorm)
+                                        val idx = selectedBoxIndex ?: -1
+                                        if (idx in activeBoxes.indices) {
+                                            val currentBox = activeBoxes[idx]
+                                            viewModel.resizeSelectedBox(idx, currentBox.yMin, currentBox.xMin, currentYNorm, currentXNorm)
+                                        }
                                     }
                                 }
                             },
