@@ -181,7 +181,7 @@ class InspectionViewModel(
             _selectedScanId.value = null
             _imageName.value = "${type.displayName} - Logged"
             
-            val bitmap = withContext(Dispatchers.Default) {
+            val bitmap = withContext(Dispatchers.Main) {
                 SampleFabricGenerator.generateFabric(type)
             }
             _currentBitmap.value = bitmap
@@ -248,10 +248,14 @@ class InspectionViewModel(
                 // Map the api results to Local DefectBox entities
                 val boxes = results.map { api ->
                     val coords = api.box2d // guaranteed 4 coordinates
-                    val yMin = coords.getOrElse(0) { 0 }
+                    val rawYMin = coords.getOrElse(0) { 0 }
                     val xMin = coords.getOrElse(1) { 0 }
-                    val yMax = coords.getOrElse(2) { 1000 }
+                    val rawYMax = coords.getOrElse(2) { 1000 }
                     val xMax = coords.getOrElse(3) { 1000 }
+                    
+                    // Remove erroneous downward shift coordinate bias
+                    val yMin = rawYMin.coerceIn(0, 1000)
+                    val yMax = rawYMax.coerceIn(0, 1000)
                     
                     DefectBox(
                         scanId = "", // Filled when saving to Room
@@ -284,10 +288,10 @@ class InspectionViewModel(
                         DefectBox(scanId = "", yMin = 387, xMin = 506, yMax = 494, xMax = 612, label = "Oil Spot", confidence = 0.94f)
                     )
                     name.contains("Linen", ignoreCase = true) -> listOf(
-                        DefectBox(scanId = "", yMin = 700, xMin = 240, yMax = 825, xMax = 375, label = "Hole / Tear", confidence = 0.95f)
+                        DefectBox(scanId = "", yMin = 712, xMin = 240, yMax = 812, xMax = 375, label = "Hole / Tear", confidence = 0.95f)
                     )
                     name.contains("Silk", ignoreCase = true) -> listOf(
-                        DefectBox(scanId = "", yMin = 256, xMin = 337, yMax = 387, xMax = 481, label = "Dye Stain", confidence = 0.92f)
+                        DefectBox(scanId = "", yMin = 256, xMin = 337, yMax = 388, xMax = 481, label = "Dye Stain", confidence = 0.92f)
                     )
                     else -> emptyList()
                 }
@@ -460,7 +464,7 @@ class InspectionViewModel(
             _selectedBoxIndex.value = -1
             
             // Re-generate correct mock backdrop bitmap based on display label or use a standard cotton representation
-            val bitmap = withContext(Dispatchers.Default) {
+            val bitmap = withContext(Dispatchers.Main) {
                 if (history.imageName.contains("Denim")) {
                     SampleFabricGenerator.generateFabric(FabricType.DENIM_OIL_SPOT)
                 } else if (history.imageName.contains("Linen")) {
@@ -566,7 +570,7 @@ class InspectionViewModel(
                     delay(500)
                     val nextType = fabricTypes[index % fabricTypes.size]
                     _imageName.value = "Live Feed: ${nextType.displayName}"
-                    val b = withContext(Dispatchers.Default) {
+                    val b = withContext(Dispatchers.Main) {
                         SampleFabricGenerator.generateFabric(nextType)
                     }
                     _currentBitmap.value = b
@@ -578,10 +582,10 @@ class InspectionViewModel(
                             DefectBox(scanId = "LIVE", yMin = 387, xMin = 506, yMax = 494, xMax = 612, label = "Oil Spot", confidence = 0.94f)
                         )
                         FabricType.LINEN_TORN_THREAD -> listOf(
-                            DefectBox(scanId = "LIVE", yMin = 700, xMin = 240, yMax = 825, xMax = 375, label = "Hole / Tear", confidence = 0.95f)
+                            DefectBox(scanId = "LIVE", yMin = 712, xMin = 240, yMax = 812, xMax = 375, label = "Hole / Tear", confidence = 0.95f)
                         )
                         FabricType.SILK_STAIN -> listOf(
-                            DefectBox(scanId = "LIVE", yMin = 256, xMin = 337, yMax = 387, xMax = 481, label = "Dye Stain", confidence = 0.92f)
+                            DefectBox(scanId = "LIVE", yMin = 256, xMin = 337, yMax = 388, xMax = 481, label = "Dye Stain", confidence = 0.92f)
                         )
                         FabricType.COTTON_CLEAN -> emptyList()
                     }

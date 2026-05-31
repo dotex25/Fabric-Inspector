@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.*
@@ -1468,7 +1469,7 @@ fun BentoMetricsGrid(
                         }
                         Spacer(modifier = Modifier.height(4.dp))
                         LinearProgressIndicator(
-                            progress = progressValue,
+                            progress = { progressValue },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(4.dp),
@@ -1635,7 +1636,7 @@ fun SampleFabricPicker(
                             Text(badgeText, fontSize = 11.sp, color = textMuted)
                         }
                         Icon(
-                            imageVector = Icons.Default.ArrowForward,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                             contentDescription = null,
                             tint = if (isDark) PrimaryTeal else Color(0xFF0091EA),
                             modifier = Modifier.size(16.dp)

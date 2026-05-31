@@ -248,13 +248,14 @@ fun InspectionCanvas(
                     .pointerInput(isCorrectionMode, showOriginalOnlyInCompare, bitmap, canvasWidthPx, canvasHeightPx) {
                         if (!isCorrectionMode || showOriginalOnlyInCompare) return@pointerInput
 
+                        val currentBitmap = bitmap
                         // Calculate dynamic scale factors inside pixel coordinate domain safely
                         val safeCanvasW = if (canvasWidthPx > 0f) canvasWidthPx else 1f
                         val safeCanvasH = if (canvasHeightPx > 0f) canvasHeightPx else 1f
 
-                        val (displayedWidthPx, displayedHeightPx) = if (bitmap != null) {
-                            val imgW = bitmap!!.width.toFloat()
-                            val imgH = bitmap!!.height.toFloat()
+                        val (displayedWidthPx, displayedHeightPx) = if (currentBitmap != null) {
+                            val imgW = currentBitmap.width.toFloat()
+                            val imgH = currentBitmap.height.toFloat()
                             if (imgW > 0f && imgH > 0f) {
                                 val imageAspect = imgW / imgH
                                 val containerAspect = safeCanvasW / safeCanvasH
@@ -270,8 +271,8 @@ fun InspectionCanvas(
                             Pair(safeCanvasW, safeCanvasH)
                         }
 
-                        val offsetXPx = if (bitmap != null) (safeCanvasW - displayedWidthPx) / 2 else 0f
-                        val offsetYPx = if (bitmap != null) (safeCanvasH - displayedHeightPx) / 2 else 0f
+                        val offsetXPx = if (currentBitmap != null) (safeCanvasW - displayedWidthPx) / 2 else 0f
+                        val offsetYPx = if (currentBitmap != null) (safeCanvasH - displayedHeightPx) / 2 else 0f
 
                         val w = if (displayedWidthPx > 0f) displayedWidthPx else 1f
                         val h = if (displayedHeightPx > 0f) displayedHeightPx else 1f
@@ -433,9 +434,10 @@ fun InspectionCanvas(
                 val containerWidthDp = maxWidth.value
                 val containerHeightDp = maxHeight.value
 
-                val (displayedWidthDp, displayedHeightDp) = if (bitmap != null) {
-                    val imgW = bitmap!!.width.toFloat()
-                    val imgH = bitmap!!.height.toFloat()
+                val currentBitmap = bitmap
+                val (displayedWidthDp, displayedHeightDp) = if (currentBitmap != null) {
+                    val imgW = currentBitmap.width.toFloat()
+                    val imgH = currentBitmap.height.toFloat()
                     if (imgW > 0f && imgH > 0f) {
                         val imageAspect = imgW / imgH
                         val containerAspect = containerWidthDp / containerHeightDp
@@ -451,8 +453,8 @@ fun InspectionCanvas(
                     Pair(containerWidthDp, containerHeightDp)
                 }
 
-                val offsetXDp = if (bitmap != null) (containerWidthDp - displayedWidthDp) / 2 else 0f
-                val offsetYDp = if (bitmap != null) (containerHeightDp - displayedHeightDp) / 2 else 0f
+                val offsetXDp = if (currentBitmap != null) (containerWidthDp - displayedWidthDp) / 2 else 0f
+                val offsetYDp = if (currentBitmap != null) (containerHeightDp - displayedHeightDp) / 2 else 0f
 
                 val displayedWidth = displayedWidthDp.dp
                 val displayedHeight = displayedHeightDp.dp
@@ -650,7 +652,7 @@ fun InspectionCanvas(
                     labelOptions.forEach { option ->
                         Button(
                             onClick = {
-                                val coords = newlyDrawnCoords!!
+                                val coords = newlyDrawnCoords ?: return@Button
                                 viewModel.addNewDrawnBox(
                                     ymin = coords[0],
                                     xmin = coords[1],
