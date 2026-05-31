@@ -129,11 +129,12 @@ object GeminiScanner {
     // Call the Gemini API to inspect fabric
     suspend fun inspectFabric(
         bitmap: Bitmap,
-        pastCorrections: List<com.example.data.DefectBox>
+        pastCorrections: List<com.example.data.DefectBox>,
+        customApiKey: String? = null
     ): List<DefectApiResponse> {
-        val apiKey = BuildConfig.GEMINI_API_KEY
+        val apiKey = if (!customApiKey.isNullOrBlank()) customApiKey else BuildConfig.GEMINI_API_KEY
         if (apiKey.isEmpty() || apiKey == "MY_GEMINI_API_KEY") {
-            throw IllegalStateException("API key is unconfigured. Please configure your API key in the Secrets panel of AI Studio.")
+            throw IllegalStateException("API key is unconfigured. Please configure your API key in the Settings panel of the app or in the Secrets panel of AI Studio.")
         }
 
         val prompt = "Locate and label all garment or fabric defects in this sample. Return the bounding box coordinates [ymin, xmin, ymax, xmax], category label name, and your confidence score for each defect as raw JSON."

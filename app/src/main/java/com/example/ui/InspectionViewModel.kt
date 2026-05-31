@@ -73,6 +73,9 @@ class InspectionViewModel(
     private val _apiError = MutableStateFlow<String?>(null)
     val apiError: StateFlow<String?> = _apiError.asStateFlow()
 
+    private val _customApiKey = MutableStateFlow<String>("")
+    val customApiKey: StateFlow<String> = _customApiKey.asStateFlow()
+
     // NEW ENTERPRISE STATE FLOWS
     private val _isLiveCameraActive = MutableStateFlow<Boolean>(false)
     val isLiveCameraActive: StateFlow<Boolean> = _isLiveCameraActive.asStateFlow()
@@ -111,6 +114,19 @@ class InspectionViewModel(
     init {
         // Automatically load a default cream cotton fabric for immediate display
         loadSampleFabric(FabricType.DENIM_OIL_SPOT)
+        loadCustomApiKey()
+    }
+
+    private fun loadCustomApiKey() {
+        val prefs = getApplication<Application>().getSharedPreferences("fabric_inspect_prefs", Context.MODE_PRIVATE)
+        _customApiKey.value = prefs.getString("custom_gemini_api_key", "") ?: ""
+    }
+
+    fun updateCustomApiKey(key: String) {
+        val prefs = getApplication<Application>().getSharedPreferences("fabric_inspect_prefs", Context.MODE_PRIVATE)
+        prefs.edit().putString("custom_gemini_api_key", key).apply()
+        _customApiKey.value = key
+        addAuditLog("Custom Gemini API Key updated in settings.", "SUCCESS")
     }
 
     // Load sample fabric generated programmatically
@@ -180,7 +196,11 @@ class InspectionViewModel(
                     repository.getCorrectionsMemory()
                 }
 
-                val results = GeminiScanner.inspectFabric(bitmap, historicalCorrectionsList)
+                val results = GeminiScanner.inspectFabric(
+                    bitmap = bitmap,
+                    pastCorrections = historicalCorrectionsList,
+                    customApiKey = _customApiKey.value.takeIf { it.isNotBlank() }
+                )
                 
                 // Map the api results to Local DefectBox entities
                 val boxes = results.map { api ->

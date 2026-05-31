@@ -72,10 +72,12 @@ fun DashboardScreen(
     val isOfflineMode by viewModel.isOfflineMode.collectAsState()
     val auditLogs by viewModel.auditLogs.collectAsState()
     val exportProgress by viewModel.exportProgress.collectAsState()
+    val customApiKey by viewModel.customApiKey.collectAsState()
     
     val scope = rememberCoroutineScope()
     var showExportDialog by remember { mutableStateOf(false) }
     var exportedJsonText by remember { mutableStateOf("") }
+    var showSettingsDialog by remember { mutableStateOf(false) }
 
     // Launcher for selecting image from gallery
     val galleryLauncher = rememberLauncherForActivityResult(
@@ -128,6 +130,9 @@ fun DashboardScreen(
                 onResetClick = {
                     viewModel.clearAllScansHistory()
                     Toast.makeText(context, "Cleared database logs", Toast.LENGTH_SHORT).show()
+                },
+                onSettingsClick = {
+                    showSettingsDialog = true
                 }
             )
         },
@@ -363,12 +368,25 @@ fun DashboardScreen(
             containerColor = PanelBg
         )
     }
+
+    // Modal Settings Configuration Dialog
+    if (showSettingsDialog) {
+        GeminiSettingsDialog(
+            currentApiKey = customApiKey,
+            onDismiss = { showSettingsDialog = false },
+            onSave = { newKey ->
+                viewModel.updateCustomApiKey(newKey)
+                showSettingsDialog = false
+            }
+        )
+    }
 }
 
 @Composable
 fun BentoHeader(
     viewModel: InspectionViewModel,
-    onResetClick: () -> Unit
+    onResetClick: () -> Unit,
+    onSettingsClick: () -> Unit
 ) {
     val isDark = isSystemInDarkTheme()
     val barBg = MaterialTheme.colorScheme.background
@@ -504,8 +522,128 @@ fun BentoHeader(
                     modifier = Modifier.size(16.dp)
                 )
             }
+
+            // API Settings Key Configuration
+            IconButton(
+                onClick = onSettingsClick,
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(Color.Transparent, CircleShape)
+                    .border(BorderStroke(1.dp, borderCol), CircleShape)
+                    .testTag("settings_btn")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Configure API Key",
+                    tint = PrimaryTeal,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
+}
+
+@Composable
+fun GeminiSettingsDialog(
+    currentApiKey: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit
+) {
+    val isDark = isSystemInDarkTheme()
+    var keyText by remember { mutableStateOf(currentApiKey) }
+    var keyVisible by remember { mutableStateOf(false) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Settings, contentDescription = null, tint = PrimaryTeal)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Gemini API Configuration", color = if (isDark) TextWhite else Color.Black)
+            }
+        },
+        text = {
+            Column {
+                Text(
+                    text = "If you encounter 429 API rate limits, enter your personal Gemini API Key below. This key overrides the factory default securely in local device storage.",
+                    color = if (isDark) TextMuted else Color.DarkGray,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
+                
+                OutlinedTextField(
+                    value = keyText,
+                    onValueChange = { keyText = it },
+                    label = { Text("Custom Gemini API Key") },
+                    placeholder = { Text("AIzaSy...") },
+                    singleLine = true,
+                    visualTransformation = if (keyVisible) androidx.compose.ui.text.input.VisualTransformation.None else androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("gemini_api_key_field"),
+                    trailingIcon = {
+                        IconButton(onClick = { keyVisible = !keyVisible }) {
+                            Icon(
+                                imageVector = if (keyVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (keyVisible) "Hide Key" else "Show Key",
+                                tint = if (isDark) TextWhite else Color.Black
+                            )
+                        }
+                    },
+                    textStyle = TextStyle(fontSize = 13.sp, color = if (isDark) Color.White else Color.Black),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = PrimaryTeal,
+                        unfocusedBorderColor = if (isDark) CustomGreyBorder else Color.LightGray,
+                        focusedLabelColor = PrimaryTeal,
+                        unfocusedLabelColor = if (isDark) TextMuted else Color.Gray,
+                        focusedTextColor = if (isDark) Color.White else Color.Black,
+                        unfocusedTextColor = if (isDark) Color.White else Color.Black
+                    )
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    Text(
+                        text = "Leave empty to restore the default pre-configured key.",
+                        color = if (isDark) TextMuted.copy(alpha = 0.8f) else Color.Gray,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSave(keyText) },
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryTeal),
+                modifier = Modifier.testTag("save_settings_btn")
+            ) {
+                Text("Save Key", color = Color.Black, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (currentApiKey.isNotBlank()) {
+                    TextButton(
+                        onClick = {
+                            keyText = ""
+                            onSave("")
+                        },
+                        modifier = Modifier.testTag("clear_settings_btn")
+                    ) {
+                        Text("Clear Key", color = if (isDark) Color(0xFFF2B8B5) else Color.Red)
+                    }
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Cancel", color = if (isDark) TextWhite else Color.Black)
+                }
+            }
+        },
+        containerColor = if (isDark) PanelBg else Color.White
+    )
 }
 
 @Composable
